@@ -1,0 +1,14 @@
+
+InData=[1 0 1 1 0 0 1 0 1 1 1 0];
+Params.Interleaver.isTransparent = false;
+il = ClassInterleaver(Params, 'ru');clc
+
+OutData=il.StepTx(InData);
+disp(OutData)
+% 1     1     1     1     0     0     0     1     1     0     1     0
+
+% 1     1     1     1     
+% 0     0     0     1 
+% 1     0     1     0
+
+% 101100101110 совпало
