@@ -1,37 +1,110 @@
 classdef ClassEncoder < handle
-    properties (SetAccess = private) % Переменные из параметров
-        % Нужно ли выполнять кодирование и декодирование
-            isTransparent;
-        % Переменная управления языком вывода информации для пользователя
-            LogLanguage;
+    properties (SetAccess = private)
+        isTransparent;
+        LogLanguage;
+        Date;
+        LDPCcfg;       
+        Mode;          
     end
-    properties (SetAccess = private) % Вычисляемые переменные
-    end
+    
     methods
-        function obj = ClassEncoder(Params, LogLanguage) % Конструктор
-            % Выделим поля Params, необходимые для инициализации
-                Encoder  = Params.Encoder;
-            % Инициализация значений переменных из параметров
-                obj.isTransparent = Encoder.isTransparent;
-            % Переменная LogLanguage
-                obj.LogLanguage = LogLanguage;
+        function obj = ClassEncoder(Params, LogLanguage)
+            Encoder = Params.Encoder;
+            obj.isTransparent = Encoder.isTransparent;
+            obj.LogLanguage  = LogLanguage;
+            
+            if isfield(Encoder, 'Date') && ~isempty(Encoder.Date)
+                obj.Date = Encoder.Date;
+            else
+                obj.Date = datetime('now');
+            end
         end
+        
         function OutData = StepTx(obj, InData)
             if obj.isTransparent
                 OutData = InData;
-                return
+                return;
+            end
+            %% Bch begin
+            N = 15; K = 5; t=3;
+            
+            % Расчет циклотомических классов
+            m = log2(N+1);
+            gfCosets = cosets(m, [], 'nodisplay');
+            
+            alpha = gf(2, m);
+            powerVector = alpha.^(0:2^m-2);
+            [~, powerLoc] = sort(powerVector.x);
+            
+            numCosets = numel(gfCosets) - 2;
+            
+            minPolDegree = zeros(1, numCosets);
+            for idx = 1:numCosets
+                minPolDegree(idx) = numel(gfCosets{idx+1}.x);
+            end
+
+            % Генерация порождающего полинома
+            t2 = 2*t;
+            coset = cosets(m, [], 'nodisplay');
+            
+            minpol_list = {};
+            for idx1 = 2 : numel(coset)
+                if any(log(coset{idx1}) <= t2)
+                    % Произведение (x - a) по всем a из класса
+                    p = gf(1, m);                      % стартовый полином "1"
+                    for a = coset{idx1}(:).'
+                        p = conv(p, gf([1 double(a.x)], m));
+                    end
+                    pv = double(p.x);
+                    pv = mod(real(pv), 2);
+                    minpol_list{end+1} = pv(:).';      %#ok<AGROW>
+                end
             end
             
-            % Здесь должна быть процедура кодирования
-            OutData = InData;
+            genpoly = 1;
+            for k = 1:numel(minpol_list)
+                genpoly = conv(genpoly, minpol_list{k});
+            end
+            
+            genpoly = mod(real(genpoly), 2);
+            genpoly = genpoly(:).';
+            
+            % Обработка входных данных
+            msg = mod(double(InData(:).'), 2);
+            
+            dividend = [msg, zeros(1, N-K)];
+            [~, remd] = deconv(dividend, genpoly);
+            remd = mod(real(remd), 2);
+            
+            % Корректировка длины остатка
+            if numel(remd) > (N-K)
+                remd = remd(end-(N-K)+1:end);
+            elseif numel(remd) < (N-K)
+                remd = [zeros(1, (N-K)-numel(remd)), remd];
+            end
+            
+%% Bch end  OutData = [msg, remd];
+
+%% lcdp begin
+
+
+
+
+
+
+
+
+
+
+%% lcdp end
+           
         end
+        
         function OutData = StepRx(obj, InData)
             if obj.isTransparent
                 OutData = InData;
-                return
+                return;
             end
-            
-            % Здесь должна быть процедура декодирования
             OutData = InData;
         end
     end

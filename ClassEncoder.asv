@@ -1,0 +1,98 @@
+classdef ClassEncoder < handle
+    properties (SetAccess = private)
+        isTransparent;
+        LogLanguage;
+        Date;
+    end
+    
+    methods
+        function obj = ClassEncoder(Params, LogLanguage)
+            Encoder = Params.Encoder;
+            obj.isTransparent = Encoder.isTransparent;
+            obj.LogLanguage  = LogLanguage;
+            
+            if isfield(Encoder, 'Date') && ~isempty(Encoder.Date)
+                obj.Date = Encoder.Date;
+            else
+                obj.Date = datetime('now');
+            end
+        end
+        
+        function OutData = StepTx(obj, InData)
+            if obj.isTransparent
+                OutData = InData;
+                return;
+            end
+            
+            N = 15; K = 5;
+            
+            % Расчет циклотомических классов
+            m = log2(N+1);
+            gfCosets = cosets(m, [], 'nodisplay');
+            
+            alpha = gf(2, m);
+            powerVector = alpha.^(0:2^m-2);
+            [~, powerLoc] = sort(powerVector.x);
+            
+            numCosets = numel(gfCosets) - 2;
+            
+            minPolDegree = zeros(1, numCosets);
+            for idx = 1:numCosets
+                minPolDegree(idx) = numel(gfCosets{idx+1}.x);
+            end
+
+            % Генерация порождающего полинома
+            t2 = 2*t;
+            coset = cosets(m, [], 'nodisplay');
+            
+            minpol_list = {};
+            for idx1 = 2 : numel(coset)
+                if any(log(coset{idx1}) <= t2)
+                    % Произведение (x - a) по всем a из класса
+                    p = gf(1, m);                      % стартовый полином "1"
+                    for a = coset{idx1}(:).'
+                        p = conv(p, gf([1 double(a.x)], m));
+                    end
+                    pv = double(p.x);
+                    pv = mod(real(pv), 2);
+                    minpol_list{end+1} = pv(:).';      %#ok<AGROW>
+                end
+            end
+            
+            genpoly = 1;
+            for k = 1:numel(minpol_list)
+                genpoly = conv(genpoly, minpol_list{k});
+            end
+            
+            genpoly = mod(real(genpoly), 2);
+            genpoly = genpoly(:).';
+            
+            % Обработка входных данных
+            msg = mod(double(InData(:).'), 2);
+            if numel(msg) ~= K
+                error('ClassEncoder: ожидается %d бит, получено %d', K, numel(msg));
+            end
+            
+            dividend = [msg, zeros(1, N-K)];
+            [~, remd] = deconv(dividend, genpoly);
+            remd = mod(real(remd), 2);
+            
+            % Корректировка длины остатка
+            if numel(remd) > (N-K)
+                remd = remd(end-(N-K)+1:end);
+            elseif numel(remd) < (N-K)
+                remd = [zeros(1, (N-K)-numel(remd)), remd];
+            end
+            
+            OutData = [msg, remd];
+        end
+        
+        function OutData = StepRx(obj, InData)
+            if obj.isTransparent
+                OutData = InData;
+                return;
+            end
+            OutData = InData;
+        end
+    end
+end
