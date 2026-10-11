@@ -115,7 +115,7 @@ classdef ClassEncoder < handle
             numRows1 = size(obj.ct1, 1);
             numRows2 = size(obj.ct2, 1);
 
-            % --- Первые группы: ct1 ---
+            %  Первые группы: ct1 
             for g = 0:numRows1-1
                 addrs = obj.ct1(g+1, 2:end);
                 base  = g * obj.NB;
@@ -129,7 +129,7 @@ classdef ClassEncoder < handle
                 end
             end
 
-            % --- Остальные группы: ct2 ---
+            % Остальные группы: ct2
             for g = 0:numRows2-1
                 addrs = obj.ct2(g+1, 2:end);
                 base  = numRows1 * obj.NB + g * obj.NB;
@@ -143,7 +143,7 @@ classdef ClassEncoder < handle
                 end
             end
 
-            % --- Обратная подстановка ---
+            % Обратная подстановка
             p = zeros(1, obj.M);
             p(1) = acc(1);
             for i = 2 : obj.M
