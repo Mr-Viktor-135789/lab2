@@ -3,7 +3,7 @@ classdef ClassEncoder < handle
         Mode = 'BCH+LDPC';
     end
 
-    properties
+        properties
         BCH_cwLen = 64800;
         BCH_k     = 53808;   
     end
@@ -16,8 +16,8 @@ classdef ClassEncoder < handle
 
         N = 64800;
         K = 54000;
-        M = N - K;
-        Q = 72;
+        M;
+        Q;
         NB = 360;
 
         BCH_parityBits;
@@ -30,7 +30,10 @@ classdef ClassEncoder < handle
         function obj = ClassEncoder(Params, LogLanguage)
             Encoder = Params.Encoder;
             obj.isTransparent = Encoder.isTransparent;
-            obj.LogLanguage  = LogLanguage;
+            obj.LogLanguage = LogLanguage;
+
+            obj.M = obj.N-obj.K;         
+            obj.Q = obj.M/obj.NB;      
         end
 
         function OutData = StepTx(obj, InData)

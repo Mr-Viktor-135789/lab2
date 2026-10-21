@@ -1,172 +1,65 @@
 function Main(FirstParamsNum, Step4ParamsNum, LogLanguage)
-%
-% Главный запускаемый файл модели
-%   Входных переменных может быть 0, 1, 2 или 3. Значения по умолчанию:
-%       FirstParamsNum = 1;
-%       Step4ParamsNum = 1;
-%       LogLanguage = 'Russian'.
-%
-% Входные переменные:
-%   Если имеется только одна входная переменная, то FirstParamsNum - массив
-%       значений номеров наборов параметров, для которых нужно выполнить
-%       моделирование.
-%   Если входных переменных две или три, то FirstParamsNum, Step4ParamsNum
-%       - номер первого набора параметров и шаг для перехода к последующему
-%       набору параметров. Пара этих переменных предназначена, прежде
-%       всего, для запуска модели на нескольких узлах.
-%   LogLanguage - язык для вывода сообщений пользователю и сохранения лога
-%       ('Russian' (по умолчанию) | 'English').
+% Главный запускаемый файл (только DVB-S2).
 
-    % Очистка command window, закрытие всего
-        clc;
-        close all;
+    clc; close all;
 
-    % Проверим количество входных переменных
-        if ~(nargin >= 0 && nargin <= 3)
-            error(['Количество входных переменных Main должно быть ', ...
-                '0, 1, 2 или 3. The number of input arguments to the ', ...
-                'Main should be equal to 0, 1, 2 or 3.']);
+    function RunDVBS2(Params, ParamsNum, LogLanguage)
+        fprintf('%s DVB-S2 point %d: %s R=%s beta=%.2f pilots=%d\n', ...
+            datestr(now), ParamsNum, Params.Sig.Modulation, ...
+            Params.Sig.CodeRate, Params.Sig.Rolloff, Params.Sig.Pilots);
+    
+        % --- FECFRAME нужной длины --------------------------------------
+        nLdpc = Params.Sig.FrameLength;
+        rng(17);
+        fecBits = randi([0 1], nLdpc, 1);
+    
+        % --- Формирование PLFRAME + RRC ---------------------------------
+        sig = ClassSig(Params, LogLanguage);
+        [wave, info] = sig.StepTx(fecBits);
+    
+        % --- Сохранение -------------------------------------------------
+        if ~isfolder(Params.Common.SaveDirName)
+            mkdir(Params.Common.SaveDirName);
         end
-        
-    % Определим язык для лога
-        if nargin >= 0 && nargin <= 2
-            LogLanguage = 'Russian';
-        else
-            if ~(strcmp(LogLanguage, 'Russian') || ...
-                    strcmp(LogLanguage, 'English'))
-                error(['Недопустимое значение переменной ', ...
-                    'LogLanguage! Допустимые значения ''Russian'' и ', ...
-                    '''English''. Invalid value of LogLanguage! ', ...
-                    'Valid values are ''Russian'' and ''English''.']);
-            end
-        end            
+        Res = struct();
+        Res.Sig            = Params.Sig;
+        Res.Modcod         = info.Modcod;
+        Res.NumSlots       = info.NumSlots;
+        Res.NumPilotBlocks = info.NumPilotBlocks;
+        Res.PilotPositions = info.PilotPositions;
+        Res.PLFrameLength  = info.PLFrameLength;
+        Res.Waveform       = wave;
+        Res.SampleRate     = info.SampleRate;
+    
+        FullName = fullfile(Params.Common.SaveDirName, ...
+            sprintf('%s_%02d.mat', Params.Common.SaveFileName, ParamsNum));
+        save(FullName, 'Res', 'Params');
+        fprintf('   saved: %s (%d symbols, %d pilots)\n', ...
+            FullName, info.PLFrameLength, info.NumPilotBlocks);
+    end
+    if nargin < 1 || isempty(FirstParamsNum), FirstParamsNum = 1; end
+    if nargin < 2 || isempty(Step4ParamsNum), Step4ParamsNum = 1; end
+    if nargin < 3 || isempty(LogLanguage),    LogLanguage = 'Russian'; end
+    if ~(strcmp(LogLanguage,'Russian') || strcmp(LogLanguage,'English'))
+        error('Main:LogLanguage', 'LogLanguage must be Russian or English.');
+    end
 
-    % Определим значения FirstParamsNum, Step4ParamsNum   
-        if nargin == 0
-            FirstParamsNum = 1;
-            Step4ParamsNum = 1;
-        elseif nargin == 1
-            Step4ParamsNum = 1;
-        else
-            % Проверка корректности введённых значений
-        end
-        
-    % Считывание параметров, значения которых отличаются от значений по
-    % умолчанию
-        Params = ReadSetup(LogLanguage);
+    Params = ReadSetup(LogLanguage);
+    NumParams = numel(Params);
 
-    % Определим массив значений kVals - номеров параметров, для которых
-    % должен быть выполнен расчёт (на данном узле)
-        % Общее количество наборов параметров
-            NumParams = length(Params);
-        if nargin == 1
-            kVals = FirstParamsNum;
-        else
-            kVals = FirstParamsNum : Step4ParamsNum : NumParams;
-        end
+    if nargin == 1
+        kVals = FirstParamsNum;
+    else
+        kVals = FirstParamsNum : Step4ParamsNum : NumParams;
+    end
+    if min(kVals) < 1 || max(kVals) > NumParams
+        error('Main:Range', 'Invalid parameter set range.');
+    end
 
-    % Проверка значений kVals
-        if (min(kVals) < 1) || (max(NumParams) > NumParams)
-            if strcmp(LogLanguage, 'Russian')
-                error('Недопустимое значение номера набора парметров');
-            else
-                error('Invalid value of number for parameters set');
-            end
-        end
-        
-    % Цикл по набору параметров
-        for k = kVals
-            % Установка значений параметров по умолчанию
-                Params{k} = SetParams(Params{k}, k, LogLanguage);
+    for k = kVals
+        Params{k} = SetParams(Params{k}, k, LogLanguage);
+        Params{k} = CalcAndCheckParams(Params{k}, LogLanguage);
 
-            % Вычисление/проверка параметров
-                Params{k} = CalcAndCheckParams(Params{k}, LogLanguage);
-
-            % Инициализация объектов
-                [Objs, Ruler] = PrepareObjects(Params{k}, k, ...
-                    NumParams, LogLanguage);
-
-            % Переход в режим параллельных вычислений (при необходимости)
-                Ruler.StartParallel();
-
-            % Сброс генераторов случайных чисел в начальное состояние
-                Ruler.ResetRandStreams();
-                
-            % Цикл для одного набора параметров
-                while ~Ruler.isStop
-                    % Обработка очередного блока кадров
-                        if Ruler.NumWorkers > 1
-                            parfor n = 1:Ruler.NumWorkers
-                                Objs{n} = LoopFun(Objs{n}, Ruler, n);
-                            end
-                        else
-                            Objs{1} = LoopFun(Objs{1}, Ruler, 1);
-                        end
-                    % Обработка результатов
-                        isPointFinished = Ruler.Step(Objs);
-                        
-                    % Сохранение результатов при окончании расчёта
-                    % очередной точки
-                        if isPointFinished
-                            Ruler.Saves(Objs, Params{k});
-                        end
-                end
-
-            % Выход из параллельных вычислений (при необходимости)
-                if isequal(k, kVals(end))
-                    Ruler.StopParallel();
-                end
-
-            % Удаление всех объектов
-                DeleteObjects(Objs, Ruler);
-        end
-
-end
-function Objs = LoopFun(inObjs, Ruler, WorkerNum)
-% Цикл для одного набора параметров
-
-    % Хотя все объекты в модели типа handle, т.е. фактически это указатели,
-    % тем не менее, для корректной работы parfor нужо делать явное
-    % переприсвоение результатов на выход (https://www.mathworks.com/help/
-    % distcomp/objects-and-handles-in-parfor-loops.html)
-        Objs = inObjs;
-
-    % Цикл по количеству кадров
-        for k = 1:Ruler.OneWorkerNumOneIterFrames(WorkerNum)
-            % Передатчик
-                % Генерирование полезных данных
-                    Frame.TxData       = Objs.Source.Step();
-                % Кодирование кодом, исправляющим ошибки
-                    Frame.TxEncData    = Objs.Encoder.StepTx(Frame.TxData);
-                % Перемешивание полезных данных
-                    Frame.TxIntData    = Objs.Interleaver.StepTx( ...
-                        Frame.TxEncData);
-                % Отображение на модуляционные символы
-                    Frame.TxModSymbols = Objs.Mapper.StepTx( ...
-                        Frame.TxIntData);
-                % Генерирование сигнала
-                    Frame.TxSignal     = Objs.Sig.StepTx( ...
-                        Frame.TxModSymbols);
-
-            % Канал
-                [Frame.RxSignal, InstChannelParams] = Objs.Channel.Step(...
-                    Frame.TxSignal, Ruler.h2dB);
-
-            % Приёмник
-                % Обработка принятого сигнала - вычисление модуляционных
-                % символов
-                    Frame.RxModSymbols = Objs.Sig.StepRx(Frame.RxSignal);
-                % Демодуляция
-                    Frame.RxIntData    = Objs.Mapper.StepRx( ...
-                        Frame.RxModSymbols, InstChannelParams);
-                % Обратное перемешивание
-                    Frame.RxEncData    = Objs.Interleaver.StepRx( ...
-                        Frame.RxIntData);
-                % Декодирование кодом, исправляющим ошибки
-                    Frame.RxData       = Objs.Encoder.StepRx( ...
-                        Frame.RxEncData);
-
-            % Накопление статистики по текущему Frame
-                Objs.Stat.Step(Frame);
-        end
+        RunDVBS2(Params{k}, k, LogLanguage);
+    end
 end

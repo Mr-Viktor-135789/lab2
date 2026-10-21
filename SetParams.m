@@ -6,6 +6,8 @@ function Params = SetParams(inParams, ParamsNumber, LogLanguage)
     % Имена полей структуры Params верхнего уровня    
         FieldNames = { ...
             'Source', ...
+            'ModeAdaptation', ...      % <-- новое
+            'StreamAdaptation', ...    % <-- новое
             'Encoder', ...
             'Interleaver', ...
             'Mapper', ...
@@ -14,7 +16,6 @@ function Params = SetParams(inParams, ParamsNumber, LogLanguage)
             'BER', ...
             'Common' ...
         };
-
     for n = 1:length(FieldNames) % Цикл по всем полям Params верхнего
             % уровня
         % Если поле верхнего уровня не существует, его надо создать
@@ -430,5 +431,15 @@ function Common = SetParamsCommon(inCommon, ParamsNumber, ...
             Common.isRealTimeLogFile = 0;
         else
             % Проверка корректности введённых значений
-        end
+        end     
+end
+
+function MA = SetParamsModeAdaptation(inMA, ParamsNumber, LogLanguage) %#ok<INUSD,DEFNU>
+% Параметры Mode Adaptation (CRC-8 + BBHEADER).
+    MA = inMA;
+end
+
+function SA = SetParamsStreamAdaptation(inSA, ParamsNumber, LogLanguage) %#ok<INUSD,DEFNU>
+% Параметры Stream Adaptation (padding + BB scrambling).
+    SA = inSA;
 end
