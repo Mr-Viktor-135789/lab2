@@ -23,7 +23,10 @@ classdef ClassInterleaver < handle
             end
             
             % Здесь должна быть процедура перемежения
-            OutData = InData;
+            row=ceil(length(InData)/3);
+            arr=reshape(InData, 3 ,row).';
+            OutData = arr(:).'; 
+            
         end
         function OutData = StepRx(obj, InData)
             if obj.isTransparent
