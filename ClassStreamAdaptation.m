@@ -9,6 +9,7 @@ classdef ClassStreamAdaptation < handle
         bbFrame;
         scrambledBBFrame;
         padding;
+        TraceObj;
     end
     methods
         function obj = ClassStreamAdaptation(Params, LogLanguage)
@@ -32,12 +33,15 @@ classdef ClassStreamAdaptation < handle
             obj.K_BCH = SA.K_BCH;
             obj.DFL   = SA.DFL;
             obj.PADDING_BITS = obj.K_BCH - 80 - obj.DFL;
+            disp('===== STREAM ADAPTATION =====');
 
             if obj.PADDING_BITS < 0
                 error('K_BCH must be >= 80 + DFL');
             end
 
             obj.LogLanguage = LogLanguage;
+            
+            obj.TraceObj = TraceOfConver(Params.Common.Trace);
         end
 
         function OutData = StepTx(obj, InData)
@@ -54,9 +58,18 @@ classdef ClassStreamAdaptation < handle
             % Формируем BBFRAME
             obj.padding = zeros(obj.PADDING_BITS, 1);
             obj.bbFrame = [bbHeader; dataField; obj.padding];
-
+            disp(sprintf('[  5] BBFRAME: 80 (BBHEADER) + %d (DFL) + %d (PADDING) = %d бит  OK', ...
+                obj.DFL, obj.PADDING_BITS, numel(obj.bbFrame)));
+            disp('       BB scrambling: PRBS 1 + X^14 + X^15, init = 100101010000000');
             % Скремблирование
             obj.scrambledBBFrame = obj.bbScrambling(obj.bbFrame);
+            
+
+
+
+
+
+
             
             OutData = obj.scrambledBBFrame;
         end

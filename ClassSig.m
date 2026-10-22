@@ -38,6 +38,7 @@ classdef ClassSig < handle
         Constellation
         ScramblingRotations
         FilterTaps
+        TraceObj 
     end
 
     methods
@@ -134,6 +135,13 @@ classdef ClassSig < handle
             obj.Constellation = ClassSig.makeConstellation(obj.Modulation, obj.CodeRate);
             obj.FilterTaps = ClassSig.makeRrc(obj.Rolloff, obj.Span, obj.SamplesPerSymbol);
             obj.ScramblingRotations = ClassSig.makeGoldRotations(obj.ScramblingCode);
+            % --- Trace ---
+            if isfield(Params,'Common') && isstruct(Params.Common) ...
+                    && isfield(Params.Common,'Trace')
+                obj.TraceObj = TraceOfConver(Params.Common.Trace);
+            else
+                obj.TraceObj = TraceOfConver(0);
+            end
         end
 
         function [OutData, info] = StepTx(obj, InData)
@@ -240,9 +248,31 @@ classdef ClassSig < handle
                 end
             end
             header = obj.MakePLHeader(modcod, frameSizeBit, pilotBit);
+            
+
+            
             rotations = obj.ScramblingRotations(1:numel(payload));
             payload = payload .* rotations;
+
+            % --- Trace ---
+            if ~isempty(obj.TraceObj) && obj.TraceObj.Level >= 2
+                obj.TraceObj.scramblerTrace(payload(1:8), rotations(1:8), 8);
+                okPow = abs(mean(abs(payload(1:8)).^2) - mean(abs((payload(1:8)./rotations(1:8))).^2)) < 1e-9;
+                obj.TraceObj.checkTrace('|C| = 1', all(abs(rotations(1:8))==1));
+            end
+
             frame = [header; payload];
+            if ~isempty(obj.TraceObj) && obj.TraceObj.Level >= 1
+                fprintf('[  9] PLFRAME: %d символов\n', numel(frame));
+                fprintf('       PLHEADER : 90   (SOF=26, PLS=64)\n');
+                fprintf('       XFECFRAME: %d   (%d слотов × 90)\n', numel(symbols), nSlots);
+                fprintf('       пилоты   : %d блоков × 36 = %d символов\n', ...
+                    pilotCount, pilotCount*36);
+                fprintf('       MODCOD   : %d\n', modcod);
+                obj.TraceObj.checkTrace(sprintf('90 + %d + %d = %d', ...
+                    numel(symbols), pilotCount*36, numel(frame)), ...
+                    90 + numel(symbols) + pilotCount*36 == numel(frame));
+            end
             info = struct();
             info.Modcod = modcod;
             info.FrameLength = obj.FrameLength;

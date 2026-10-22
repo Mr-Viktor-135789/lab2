@@ -11,6 +11,7 @@ classdef ClassModeAdaptation < handle
         SYNCD;
         % Язык вывода
         LogLanguage;
+        TraceObj;
     end
     properties (SetAccess = private)
         % Промежуточные результаты
@@ -20,13 +21,12 @@ classdef ClassModeAdaptation < handle
     end
     methods
         function obj = ClassModeAdaptation(Params, LogLanguage)
-            % Конструктор совместим с общим стилем фреймворка
             if isfield(Params, 'ModeAdaptation')
                 MA = Params.ModeAdaptation;
             else
                 MA = struct();
             end
-            
+        
             % Значения по умолчанию (для команды 8: 32APSK, R=5/6)
             if ~isfield(MA, 'UPL'),     MA.UPL     = 1504;   end
             if ~isfield(MA, 'DFL'),     MA.DFL     = 52640;  end
@@ -35,7 +35,7 @@ classdef ClassModeAdaptation < handle
             if ~isfield(MA, 'MATYPE2'), MA.MATYPE2 = 0x00;   end
             if ~isfield(MA, 'SYNC'),    MA.SYNC    = 0x47;   end
             if ~isfield(MA, 'SYNCD'),   MA.SYNCD   = 0x0000; end
-
+        
             obj.UPL      = MA.UPL;
             obj.DFL      = MA.DFL;
             obj.K_BCH    = MA.K_BCH;
@@ -44,11 +44,19 @@ classdef ClassModeAdaptation < handle
             obj.SYNC     = MA.SYNC;
             obj.SYNCD    = MA.SYNCD;
             obj.LogLanguage = LogLanguage;
+            obj.TraceObj = TraceOfConver(Params.Common.Trace);
 
             obj.numPackets = obj.DFL / obj.UPL;
             if mod(obj.numPackets, 1) ~= 0
                 error('DFL must be a multiple of UPL');
             end
+        
+            % --- Trace ---
+            disp(' MODE ADAPTATION');
+            disp(sprintf('   UPL=%d  DFL=%d  K_BCH=%d  N_pkt=%d  padding=%d', ...
+                    obj.UPL, obj.DFL, obj.K_BCH, obj.numPackets, ...
+                    obj.K_BCH - 80 - obj.DFL));
+            
         end
 
         function OutData = StepTx(obj, InData)
@@ -76,12 +84,29 @@ classdef ClassModeAdaptation < handle
                 crc = obj.computeCRC8(usefulPart);
                 obj.crcValues(pktIdx) = obj.bitsToByte(crc);
 
-                obj.dataField(offset + 1 : offset + 8)   = crc;
-                obj.dataField(offset + 9 : offset + obj.UPL) = usefulPart;
+                if obj.TraceObj.Level >= 1 && (pktIdx <= 2 || pktIdx == obj.numPackets)
+                    fprintf('    pkt%-2d/%d  sync=0x%02X  CRC=0x%02X\n', ...
+                        pktIdx, obj.numPackets, obj.bitsToByte(up(1:8)), obj.bitsToByte(crc));
+                end
+                % --- Trace ---
+              
+            end
+            obj.bbHeader = obj.buildBBHeader();
+            crcBB = obj.computeCRC8(obj.bbHeader(1:72));
+            crcBBval = obj.bitsToByte(crcBB);
+            disp(sprintf('[  4] BBHEADER (80 бит): MATYPE1=0x%02X MATYPE2=0x%02X UPL=0x%04X DFL=0x%04X SYNC=0x%02X SYNCD=0x%04X CRC=0x%02X', ...
+                        obj.MATYPE1, obj.MATYPE2, obj.UPL, obj.DFL, obj.SYNC, obj.SYNCD, crcBBval));
+            
+            if obj.TraceObj.Level >= 2
+                obj.TraceObj.checkTrace('длина BBHEADER = 80', numel(obj.bbHeader)==80);
+                obj.TraceObj.checkTrace(sprintf('DFL / UPL = %d', obj.DFL/obj.UPL), ...
+                    mod(obj.DFL,obj.UPL)==0);
+                obj.TraceObj.checkTrace(sprintf('padding = %d', obj.K_BCH-80-obj.DFL), ...
+                    obj.K_BCH-80-obj.DFL>=0);
             end
 
-            obj.bbHeader = obj.buildBBHeader();
-            
+
+
             % Возвращаем один вектор для совместимости с LoopFun
             OutData = [obj.bbHeader; obj.dataField];
         end

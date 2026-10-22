@@ -4,8 +4,8 @@ classdef ClassEncoder < handle
     end
 
         properties
-        BCH_cwLen = 64800;
-        BCH_k     = 53808;   
+        BCH_cwLen = 54000;
+        BCH_k     = 53840;   
     end
 
     properties (SetAccess = private)
@@ -24,6 +24,7 @@ classdef ClassEncoder < handle
 
         ct1;
         ct2;
+        TraceObj;
     end
 
     methods
@@ -33,9 +34,18 @@ classdef ClassEncoder < handle
             obj.LogLanguage = LogLanguage;
 
             obj.M = obj.N-obj.K;         
-            obj.Q = obj.M/obj.NB;      
-        end
+            obj.Q = obj.M/obj.NB;  
 
+            % --- Trace ---
+            disp('===== FEC (BCH + LDPC) =====');
+            if isfield(Params,'Common') && isfield(Params.Common,'Trace')
+                obj.TraceObj = TraceOfConver(Params.Common.Trace);
+            else
+                obj.TraceObj = TraceOfConver(0);
+            end
+        end
+        
+       
         function OutData = StepTx(obj, InData)
             if obj.isTransparent
                 OutData = InData;
@@ -48,16 +58,32 @@ classdef ClassEncoder < handle
                     bchOut = obj.encodeBCH(InData);
                     assert(numel(bchOut) == obj.K, 'BCH+LDPC: выход BCH (%d) != K_LDPC (%d)', ...
                         numel(bchOut), obj.K);
-                    OutData = obj.encodeLDPC(bchOut);
-            end
-        end
 
+                     % --- Trace ---
+                     disp(sprintf('[  6] BCH : %6d -> %6d  (+%d проверочных, K=%d, N=%d, t=10)', ...
+                            numel(InData), numel(bchOut), numel(bchOut)-numel(InData), ...
+                            obj.BCH_k, obj.BCH_cwLen));
+
+                    OutData = obj.encodeLDPC(bchOut);
+
+                    disp(sprintf('[  7] LDPC: %6d -> %6d  (+%d проверочных, K=%d, N=%d, Q=%d)', ...
+                            numel(bchOut), numel(OutData), numel(OutData)-numel(bchOut), ...
+                            obj.K, obj.N, obj.Q));
+                    disp(sprintf('       итог FEC: %d -> %d бит (rate = %.4f, ожидалось %.4f)', ...
+                        numel(InData), numel(OutData), numel(InData)/numel(OutData), ...
+                        obj.K/obj.N));
+                end
+            end
+        
 %% BCH begin
         function OutData = encodeBCH(obj, InData)
             msg = double(InData(:));
-            msg = [msg; zeros(obj.BCH_k - numel(msg), 1)];
-            out = bchEncode(msg, obj.BCH_k, obj.BCH_cwLen);
-            OutData = double(out(:).');
+            n_full = 65535;
+            k_full = n_full - (obj.BCH_cwLen - obj.BCH_k);   % 65375 для R=5/6
+            msg = [msg; zeros(k_full - numel(msg), 1)];
+            code = bchenc(gf(msg.'), n_full, k_full);
+            code = double(code.x(:));
+            OutData = code(end - obj.BCH_cwLen + 1 : end).';  % укорачиваем до 54000
         end
 %% BCH end
 
@@ -90,6 +116,7 @@ classdef ClassEncoder < handle
                             acc(pos) = xor(acc(pos), 1);
                         end
                     end
+
                 end
             end
 
@@ -101,7 +128,7 @@ classdef ClassEncoder < handle
 
             OutData = [u, p];
         end
-
+    
         function loadLDPCtables(obj)
             obj.ct1 = DataForBchLdpc.LDPC_R56_CT1;
             obj.ct2 = DataForBchLdpc.LDPC_R56_CT2;

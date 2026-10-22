@@ -8,16 +8,39 @@ function Main(FirstParamsNum, Step4ParamsNum, LogLanguage)
             datestr(now), ParamsNum, Params.Sig.Modulation, ...
             Params.Sig.CodeRate, Params.Sig.Rolloff, Params.Sig.Pilots);
     
-        % --- FECFRAME нужной длины --------------------------------------
-        nLdpc = Params.Sig.FrameLength;
+        % --- 1. MPEG-TS (nPkt * UPL бит, каждый с 0x47) ---
+        ma = ClassModeAdaptation(Params, LogLanguage);
+        nPkt = ma.numPackets;  nUPL = ma.UPL;
         rng(17);
-        fecBits = randi([0 1], nLdpc, 1);
+        tsBits = randi([0 1], nPkt*nUPL, 1);
+        sync = [0;1;0;0;0;1;1;1];                      % 0x47
+        for p = 1:nPkt
+            tsBits((p-1)*nUPL + (1:8)) = sync;
+        end
     
-        % --- Формирование PLFRAME + RRC ---------------------------------
+        % --- 2. ModeAdaptation (CRC-8 + BBHEADER) ---
+        bb = ma.StepTx(tsBits);                         % 80 + DFL
+    
+        % --- 3. StreamAdaptation (padding + BB scrambling) ---
+        sa = ClassStreamAdaptation(Params, LogLanguage);
+        bbFrame = sa.StepTx(bb);                        
+    
+               % --- 4. Encoder (BCH + LDPC) ---
+        enc = ClassEncoder(Params, LogLanguage);
+        fecBits = enc.StepTx(bbFrame);
+
+        % --- 4a. Трасса LDPC "деление в столбик" (демо, при Trace>=1) ---
+        if isfield(Params,'Common') && isfield(Params.Common,'Trace') && Params.Common.Trace >= 1
+            tr = TraceOfConver(Params.Common.Trace);
+            tr.ldpcColumnDivisionTrace(6, 2, 6, ...
+                [0 1 3 5; 1 0 2 4], [0 2 5], ...
+                [1 0 1 1 0 1, 0 1 0 0 1 1, 1 1 0 1 0 1]);
+        end                  
+    
+        % --- 5. ClassSig (PLFRAME + RRC) ---
         sig = ClassSig(Params, LogLanguage);
         [wave, info] = sig.StepTx(fecBits);
-    
-        % --- Сохранение -------------------------------------------------
+
         if ~isfolder(Params.Common.SaveDirName)
             mkdir(Params.Common.SaveDirName);
         end

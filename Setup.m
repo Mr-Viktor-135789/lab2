@@ -46,5 +46,6 @@ Common.SaveFileName     = 'DVBS2_32APSK_R56';
 Common.SaveDirName      = 'Results';
 Common.NumWorkers       = 1;
 Common.NumOneIterFrames = 1;
+Common.Trace = 2;
 
 % End of Params

@@ -1,4 +1,4 @@
-classdef DVB_S2_Tables
+classdef DataForBchLdpc
     properties (Constant)
         LDPC_R56_CT1 = [ ...
             0 4362 416 8909 4156 3216 3112 2560 2912 6405 8593 4969 6723
@@ -153,32 +153,5 @@ classdef DVB_S2_Tables
             27 3755 9536
             28 4683 2131
             29 7347 8027];
-
-        BCH_VALID_K_64800 = [16008 21408 25728 32208 38688 48408 51648 ...
-                             14208 18528 28968 34368 35448 35808 37248 ...
-                             40128 41208 41568 43008 44448 44808 45888 ...
-                             46608 47328 50208 55248 43040 53840 57472 58192];
-
-        BCH_VALID_K_32400 = [9552 10632 11712 12912 14232 15408 16512 ...
-                             17472 18528 19848 20808 21648 22488 23520 ...
-                             24432 25320 26208 27048];
-
-        BCH_VALID_K_16200 = [3240 3888 4320 4860 5184 5400 5616 6480 ...
-                             7020 7560 8100 8640];
-    end
-
-    methods (Static)
-        function K = bchValidK(cwLen)
-            switch cwLen
-                case 64800
-                    K = DVB_S2_Tables.BCH_VALID_K_64800;
-                case 32400
-                    K = DVB_S2_Tables.BCH_VALID_K_32400;
-                case 16200
-                    K = DVB_S2_Tables.BCH_VALID_K_16200;
-                otherwise
-                    error('DVB_S2_Tables: cwLen=%d не поддерживается', cwLen);
-            end
-        end
     end
 end
