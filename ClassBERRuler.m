@@ -1,708 +1,577 @@
-classdef ClassBERRuler < handle
-    properties (SetAccess = private) % Переменные из параметров
-    % Параметры работы BERRuler
-        % Из Common
-            SaveFileName;
-            SaveDirName;
-            NumOneIterFrames;
-            NumWorkers;
-            isRealTimeLog;
-        % Из BER
-            h2Precision;
-            BERPrecision;
-            BERNumRateDigits;
-            FERNumRateDigits;
-
-            MinNumTrFrames;
-
-            h2dBInit;
-            h2dBInitStep;
-            h2dBMaxStep;
-            h2dBMinStep;
-            h2dBMax;
-
-            MinBER;
-            MinNumErBits;
-            MinFER;
-            MinNumErFrames;
-
-            MaxNumTrBits
-            MaxNumTrFrames
-
-            MaxBERRate;
-            MinBERRate;
-        % Переменная управления языком вывода информации для пользователя
-            LogLanguage;
+classdef ClassBERRuler < handle % РћР±СЉСЏРІР»РµРЅРёРµ РєР»Р°СЃСЃР°
+    properties (SetAccess = private) % РџРµСЂРµРјРµРЅРЅС‹Рµ РёР· РїР°СЂР°РјРµС‚СЂРѕРІ
+    % РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РєР»Р°СЃСЃР° BERRuler
+        % РР· Common
+            SaveFileName; % РРјСЏ С„Р°Р№Р»Р° СЃРѕС…СЂР°РЅРµРЅРёСЏ
+            SaveDirName; % РРјСЏ РґРёСЂРµРєС‚РѕСЂРёРё СЃРѕС…СЂР°РЅРµРЅРёСЏ
+            NumOneIterFrames; % РљР°РґСЂРѕРІ Р·Р° РёС‚РµСЂР°С†РёСЋ
+            NumWorkers; % РљРѕР»РёС‡РµСЃС‚РІРѕ РІРѕСЂРєРµСЂРѕРІ
+            isRealTimeLog; % Р¤Р»Р°РіРё Р»РѕРіРёСЂРѕРІР°РЅРёСЏ
+        % РР· BER
+            h2Precision; % РўРѕС‡РЅРѕСЃС‚СЊ h2
+            BERPrecision; % РўРѕС‡РЅРѕСЃС‚СЊ BER
+            BERNumRateDigits; % Р—РЅР°РєРѕРІ РґР»СЏ Р±РёС‚
+            FERNumRateDigits; % Р—РЅР°РєРѕРІ РґР»СЏ РєР°РґСЂРѕРІ
+            MinNumTrFrames; % РњРёРЅ. РєР°РґСЂРѕРІ РґР»СЏ СЂР°СЃС‡РµС‚Р°
+            h2dBInit; % РќР°С‡Р°Р»СЊРЅРѕРµ h2
+            h2dBInitStep; % РќР°С‡Р°Р»СЊРЅС‹Р№ С€Р°Рі
+            h2dBMaxStep; % РњР°РєСЃ. С€Р°Рі
+            h2dBMinStep; % РњРёРЅ. С€Р°Рі
+            h2dBMax; % РњР°РєСЃ. h2
+            MinBER; % Р¦РµР»РµРІРѕР№ BER
+            MinNumErBits; % РњРёРЅ. РѕС€РёР±РѕС‡РЅС‹С… Р±РёС‚
+            MinFER; % Р¦РµР»РµРІРѕР№ FER
+            MinNumErFrames; % РњРёРЅ. РѕС€РёР±РѕС‡РЅС‹С… РєР°РґСЂРѕРІ
+            MaxNumTrBits % РњР°РєСЃ. РїРµСЂРµРґР°РЅРЅС‹С… Р±РёС‚
+            MaxNumTrFrames % РњР°РєСЃ. РїРµСЂРµРґР°РЅРЅС‹С… РєР°РґСЂРѕРІ
+            MaxBERRate; % РњР°РєСЃ. РѕС‚РЅРѕС€РµРЅРёРµ BER
+            MinBERRate; % РњРёРЅ. РѕС‚РЅРѕС€РµРЅРёРµ BER
+        % РџРµСЂРµРјРµРЅРЅР°СЏ СѓРїСЂР°РІР»РµРЅРёСЏ СЏР·С‹РєРѕРј РІС‹РІРѕРґР°
+            LogLanguage; % РЇР·С‹Рє Р»РѕРіР°
     end
-    properties (SetAccess = private) % Переменные, используемые снаружи
-        h2dB;  
-        isStop;
-        OneWorkerNumOneIterFrames;
+    properties (SetAccess = private) % РџРµСЂРµРјРµРЅРЅС‹Рµ, РІС‹С‡РёСЃР»СЏРµРјС‹Рµ РєР»Р°СЃСЃРѕРј
+        h2dB; % РўРµРєСѓС‰РµРµ Р·РЅР°С‡РµРЅРёРµ h2
+        isStop; % Р¤Р»Р°Рі РѕСЃС‚Р°РЅРѕРІРєРё
+        OneWorkerNumOneIterFrames; % РљР°РґСЂРѕРІ РЅР° РІРѕСЂРєРµСЂ
     end
-    properties (SetAccess = private) % Внутренние переменные
-        strh2Precision;
-        strh2NumDigits;
-        strBERPrecision;
-        strBERNumRateDigits;
-        strFERNumRateDigits;
+    properties (SetAccess = private) % РЎС‚СЂРѕРєРѕРІС‹Рµ РїРµСЂРµРјРµРЅРЅС‹Рµ
+        strh2Precision; % РЎС‚СЂРѕРєР° С‚РѕС‡РЅРѕСЃС‚Рё h2
+        strh2NumDigits; % РЎС‚СЂРѕРєР° СЂР°Р·СЂСЏРґРЅРѕСЃС‚Рё h2
+        strBERPrecision; % РЎС‚СЂРѕРєР° С‚РѕС‡РЅРѕСЃС‚Рё BER
+        strBERNumRateDigits; % РЎС‚СЂРѕРєР° СЂР°Р·СЂСЏРґРЅРѕСЃС‚Рё BER
+        strFERNumRateDigits; % РЎС‚СЂРѕРєР° СЂР°Р·СЂСЏРґРЅРѕСЃС‚Рё FER
     end    
-    properties (SetAccess = private) % Переменные, используемые для
-    % накопления статистики
-        h2dBs;
-        NumTrBits;
-        NumTrFrames;
-        NumErBits;
-        NumErFrames;
+    properties (SetAccess = private) % РџРµСЂРµРјРµРЅРЅС‹Рµ, РІС‹С‡РёСЃР»СЏРµРјС‹Рµ РґР»СЏ СЃС‚Р°С‚РёСЃС‚РёРєРё
+        h2dBs; % РњР°СЃСЃРёРІ h2
+        NumTrBits; % РњР°СЃСЃРёРІ РїРµСЂРµРґР°РЅРЅС‹С… Р±РёС‚
+        NumTrFrames; % РњР°СЃСЃРёРІ РїРµСЂРµРґР°РЅРЅС‹С… РєР°РґСЂРѕРІ
+        NumErBits; % РњР°СЃСЃРёРІ РѕС€РёР±РѕС‡РЅС‹С… Р±РёС‚
+        NumErFrames; % РњР°СЃСЃРёРІ РѕС€РёР±РѕС‡РЅС‹С… РєР°РґСЂРѕРІ
     end
-    properties (SetAccess = private) % Параметры, используемые для перехода
-    % между состояниями расчёта кривой помехоустойчивости, лог и полные
-    % имена файлов для сохранения
-        isMainCalcFinished;
-        h2dBStep;
-        Addh2dBs;
-        Log;
-        FullSaveFileName;
-        FullLogFileName;
+    properties (SetAccess = private) % РџРµСЂРµРјРµРЅРЅС‹Рµ, РІС‹С‡РёСЃР»СЏРµРјС‹Рµ РґР»СЏ СЂР°СЃС‡РµС‚Р°
+        isMainCalcFinished; % Р¤Р»Р°Рі Р·Р°РІРµСЂС€РµРЅРёСЏ
+        h2dBStep; % РўРµРєСѓС‰РёР№ С€Р°Рі h2
+        Addh2dBs; % Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹Рµ С‚РѕС‡РєРё
+        Log; % РњР°СЃСЃРёРІ Р»РѕРіРѕРІ
+        FullSaveFileName; % РџРѕР»РЅС‹Р№ РїСѓС‚СЊ СЃРѕС…СЂР°РЅРµРЅРёСЏ
+        FullLogFileName; % РџРѕР»РЅС‹Р№ РїСѓС‚СЊ Р»РѕРіР°
     end
     methods
-        function obj = ClassBERRuler(Params, ParamsNum, NumParams, ...
-                LogLanguage) % Конструктор
-            % Выделим поля Params, необходимые для инициализации
-                Common = Params.Common;
-                BER    = Params.BER;
-            % Инициализация параметров работы из Common
-                obj.SaveFileName     = Common.SaveFileName;
-                obj.SaveDirName      = Common.SaveDirName;
-                obj.NumOneIterFrames = Common.NumOneIterFrames;
-                obj.NumWorkers       = Common.NumWorkers;
-                obj.isRealTimeLog(1) = Common.isRealTimeLogCWin;
-                obj.isRealTimeLog(2) = Common.isRealTimeLogFile;
-            % Инициализация параметров работы из BER
-                obj.h2Precision      = BER.h2Precision;
-                obj.BERPrecision     = BER.BERPrecision;
-                obj.BERNumRateDigits = BER.BERNumRateDigits;
-                obj.FERNumRateDigits = BER.FERNumRateDigits;
-            
-                obj.MinNumTrFrames   = BER.MinNumTrFrames;
-
-                obj.h2dBInit         = BER.h2dBInit;
-                obj.h2dBInitStep     = BER.h2dBInitStep;
-                obj.h2dBMaxStep      = BER.h2dBMaxStep;
-                obj.h2dBMinStep      = BER.h2dBMinStep;
-                obj.h2dBMax          = BER.h2dBMax;
-
-                obj.MinBER           = BER.MinBER;
-                obj.MinNumErBits     = BER.MinNumErBits;
-                obj.MinFER           = BER.MinFER;
-                obj.MinNumErFrames   = BER.MinNumErFrames;
-
-                obj.MaxNumTrBits     = BER.MaxNumTrBits;
-                obj.MaxNumTrFrames   = BER.MaxNumTrFrames;
-
-                obj.MaxBERRate       = BER.MaxBERRate;
-                obj.MinBERRate       = BER.MinBERRate;
-            % Переменная LogLanguage
-                obj.LogLanguage = LogLanguage;
-
-            % Инициализация параметров, используемых снаружи: h2dB и isStop
-                obj.h2dB   = obj.h2dBInit;
-                obj.isStop = false;
-
-            % Определим строковые аналоги чисел, управляющих количеством
-            % разрядов значений при выводе лога
-                obj.strh2Precision      = sprintf('%d', obj.h2Precision);
-                if obj.h2Precision == 0
-                    obj.strh2NumDigits      = sprintf('%d', ...
-                        obj.h2Precision + 2);
-                else
-                    obj.strh2NumDigits      = sprintf('%d', ...
-                        obj.h2Precision + 3);
+        function obj = ClassBERRuler(Params, ParamsNum, NumParams, ... % РљРѕРЅСЃС‚СЂСѓРєС‚РѕСЂ
+                LogLanguage) % РЇР·С‹Рє Р»РѕРіР°
+            % Р’С‹РґРµР»РёРј РїРѕР»СЏ Params, РЅРµРѕР±С…РѕРґРёРјС‹Рµ РґР»СЏ РёРЅРёС†РёР°Р»РёР·Р°С†РёРё
+                Common = Params.Common; % РР·РІР»РµС‡РµРЅРёРµ Common
+                BER    = Params.BER; % РР·РІР»РµС‡РµРЅРёРµ BER
+            % РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ Р·РЅР°С‡РµРЅРёР№ РїРµСЂРµРјРµРЅРЅС‹С… РёР· Common
+                obj.SaveFileName     = Common.SaveFileName; % РРјСЏ С„Р°Р№Р»Р°
+                obj.SaveDirName      = Common.SaveDirName; % Р”РёСЂРµРєС‚РѕСЂРёСЏ
+                obj.NumOneIterFrames = Common.NumOneIterFrames; % РљР°РґСЂРѕРІ Р·Р° РёС‚РµСЂР°С†РёСЋ
+                obj.NumWorkers       = Common.NumWorkers; % РљРѕР»РёС‡РµСЃС‚РІРѕ РІРѕСЂРєРµСЂРѕРІ
+                obj.isRealTimeLog(1) = Common.isRealTimeLogCWin; % Р›РѕРі РІ РѕРєРЅРѕ
+                obj.isRealTimeLog(2) = Common.isRealTimeLogFile; % Р›РѕРі РІ С„Р°Р№Р»
+            % РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ Р·РЅР°С‡РµРЅРёР№ РїРµСЂРµРјРµРЅРЅС‹С… РёР· BER
+                obj.h2Precision      = BER.h2Precision; % РўРѕС‡РЅРѕСЃС‚СЊ h2
+                obj.BERPrecision     = BER.BERPrecision; % РўРѕС‡РЅРѕСЃС‚СЊ BER
+                obj.BERNumRateDigits = BER.BERNumRateDigits; % Р Р°Р·СЂСЏРґРЅРѕСЃС‚СЊ BER
+                obj.FERNumRateDigits = BER.FERNumRateDigits; % Р Р°Р·СЂСЏРґРЅРѕСЃС‚СЊ FER
+                obj.MinNumTrFrames   = BER.MinNumTrFrames; % РњРёРЅ. РєР°РґСЂРѕРІ
+                obj.h2dBInit         = BER.h2dBInit; % РќР°С‡Р°Р»СЊРЅРѕРµ h2
+                obj.h2dBInitStep     = BER.h2dBInitStep; % РќР°С‡Р°Р»СЊРЅС‹Р№ С€Р°Рі
+                obj.h2dBMaxStep      = BER.h2dBMaxStep; % РњР°РєСЃ. С€Р°Рі
+                obj.h2dBMinStep      = BER.h2dBMinStep; % РњРёРЅ. С€Р°Рі
+                obj.h2dBMax          = BER.h2dBMax; % РњР°РєСЃ. h2
+                obj.MinBER           = BER.MinBER; % Р¦РµР»РµРІРѕР№ BER
+                obj.MinNumErBits     = BER.MinNumErBits; % РњРёРЅ. РѕС€РёР±РѕРє
+                obj.MinFER           = BER.MinFER; % Р¦РµР»РµРІРѕР№ FER
+                obj.MinNumErFrames   = BER.MinNumErFrames; % РњРёРЅ. РєР°РґСЂРѕРІ СЃ РѕС€РёР±РєР°РјРё
+                obj.MaxNumTrBits     = BER.MaxNumTrBits; % РњР°РєСЃ. Р±РёС‚
+                obj.MaxNumTrFrames   = BER.MaxNumTrFrames; % РњР°РєСЃ. РєР°РґСЂРѕРІ
+                obj.MaxBERRate       = BER.MaxBERRate; % РњР°РєСЃ. РѕС‚РЅРѕС€РµРЅРёРµ
+                obj.MinBERRate       = BER.MinBERRate; % РњРёРЅ. РѕС‚РЅРѕС€РµРЅРёРµ
+            % РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ LogLanguage
+                obj.LogLanguage = LogLanguage; % РЎРѕС…СЂР°РЅРµРЅРёРµ СЏР·С‹РєР°
+            % РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РїРµСЂРµРјРµРЅРЅС‹С…, РІС‹С‡РёСЃР»СЏРµРјС‹С… РєР»Р°СЃСЃРѕРј: h2dB Рё isStop
+                obj.h2dB   = obj.h2dBInit; % РЈСЃС‚Р°РЅРѕРІРєР° h2
+                obj.isStop = false; % РЎР±СЂРѕСЃ С„Р»Р°РіР° РѕСЃС‚Р°РЅРѕРІРєРё
+            % Р¤РѕСЂРјРёСЂРѕРІР°РЅРёРµ СЃС‚СЂРѕРєРѕРІС‹С… Р·РЅР°С‡РµРЅРёР№ РґР»СЏ РІС‹РІРѕРґР°
+                obj.strh2Precision      = sprintf('%d', obj.h2Precision); % РўРѕС‡РЅРѕСЃС‚СЊ h2
+                if obj.h2Precision == 0 % Р•СЃР»Рё С‚РѕС‡РЅРѕСЃС‚СЊ 0
+                    obj.strh2NumDigits      = sprintf('%d', ... % Р Р°Р·СЂСЏРґРЅРѕСЃС‚СЊ
+                        obj.h2Precision + 2); % 2 Р·РЅР°РєР°
+                else % РРЅР°С‡Рµ
+                    obj.strh2NumDigits      = sprintf('%d', ... % Р Р°Р·СЂСЏРґРЅРѕСЃС‚СЊ
+                        obj.h2Precision + 3); % 3 Р·РЅР°РєР°
                 end
-                obj.strBERPrecision     = sprintf('%d', obj.BERPrecision);
-                obj.strBERNumRateDigits = sprintf('%d', ...
-                    obj.BERNumRateDigits);
-                obj.strFERNumRateDigits = sprintf('%d', ...
-                    obj.FERNumRateDigits);
-
-            % Округлим все значения h2
-                obj.h2dBInit     = obj.Round(obj.h2dBInit);
-                obj.h2dBInitStep = obj.Round(obj.h2dBInitStep);
-                obj.h2dBMaxStep  = obj.Round(obj.h2dBMaxStep);
-                obj.h2dBMinStep  = obj.Round(obj.h2dBMinStep);
-                obj.h2dBMax      = obj.Round(obj.h2dBMax);
-
-            % Определение числа кадров, обрабатываемых за одну итерацию для
-            % каждого worker
-                obj.OneWorkerNumOneIterFrames = zeros(1, ...
-                    Common.NumWorkers) + round(Common.NumOneIterFrames ...
-                    / Common.NumWorkers);
-                obj.OneWorkerNumOneIterFrames(end) = ...
-                    Common.NumOneIterFrames - ...
-                    sum(obj.OneWorkerNumOneIterFrames(1:end-1));
-
-            % Инициализация параметров, используемых для накопления
-            % статистики
-                obj.h2dBs       = obj.h2dB;
-                obj.NumTrBits   = 0;
-                obj.NumTrFrames = 0;
-                obj.NumErBits   = 0;
-                obj.NumErFrames = 0;
-
-            % Инициализация параметров, используемых для перехода между
-            % состояниями расчёта кривой помехоустойчивости
-                obj.isMainCalcFinished = false;
-                obj.h2dBStep = obj.h2dBInitStep;
-                obj.Addh2dBs = [];
-                
-            % При необходимости создадим папку для сохранения результатов
-                if ~isfolder(obj.SaveDirName)
-                    mkdir(obj.SaveDirName);
+                obj.strBERPrecision     = sprintf('%d', obj.BERPrecision); % РўРѕС‡РЅРѕСЃС‚СЊ BER
+                obj.strBERNumRateDigits = sprintf('%d', ... % Р Р°Р·СЂСЏРґРЅРѕСЃС‚СЊ BER
+                    obj.BERNumRateDigits); % РџРµСЂРµРІРѕРґ РІ СЃС‚СЂРѕРєСѓ
+                obj.strFERNumRateDigits = sprintf('%d', ... % Р Р°Р·СЂСЏРґРЅРѕСЃС‚СЊ FER
+                    obj.FERNumRateDigits); % РџРµСЂРµРІРѕРґ РІ СЃС‚СЂРѕРєСѓ
+            % РћРєСЂСѓРіР»РµРЅРёРµ Р·РЅР°С‡РµРЅРёР№ h2
+                obj.h2dBInit     = obj.Round(obj.h2dBInit); % РћРєСЂСѓРіР»РµРЅРёРµ РЅР°С‡Р°Р»СЊРЅРѕРіРѕ
+                obj.h2dBInitStep = obj.Round(obj.h2dBInitStep); % РћРєСЂСѓРіР»РµРЅРёРµ С€Р°РіР°
+                obj.h2dBMaxStep  = obj.Round(obj.h2dBMaxStep); % РћРєСЂСѓРіР»РµРЅРёРµ РјР°РєСЃ. С€Р°РіР°
+                obj.h2dBMinStep  = obj.Round(obj.h2dBMinStep); % РћРєСЂСѓРіР»РµРЅРёРµ РјРёРЅ. С€Р°РіР°
+                obj.h2dBMax      = obj.Round(obj.h2dBMax); % РћРєСЂСѓРіР»РµРЅРёРµ РјР°РєСЃ. h2
+            % Р Р°СЃРїСЂРµРґРµР»РµРЅРёРµ РєР°РґСЂРѕРІ РїРѕ РІРѕСЂРєРµСЂР°Рј
+                obj.OneWorkerNumOneIterFrames = zeros(1, ... % РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РјР°СЃСЃРёРІР°
+                    Common.NumWorkers) + round(Common.NumOneIterFrames ... % Р Р°РІРЅРѕРјРµСЂРЅРѕРµ
+                    / Common.NumWorkers); % Р Р°СЃРїСЂРµРґРµР»РµРЅРёРµ
+                obj.OneWorkerNumOneIterFrames(end) = ... % РљРѕСЂСЂРµРєС‚РёСЂРѕРІРєР°
+                    Common.NumOneIterFrames - ... % РћСЃС‚Р°С‚РєР°
+                    sum(obj.OneWorkerNumOneIterFrames(1:end-1)); % Р”Р»СЏ РїРѕСЃР»РµРґРЅРµРіРѕ РІРѕСЂРєРµСЂР°
+            % РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РїРµСЂРµРјРµРЅРЅС‹С… РґР»СЏ СЃС‚Р°С‚РёСЃС‚РёРєРё
+                obj.h2dBs       = obj.h2dB; % РњР°СЃСЃРёРІ h2
+                obj.NumTrBits   = 0; % РџРµСЂРµРґР°РЅРЅС‹Рµ Р±РёС‚С‹
+                obj.NumTrFrames = 0; % РџРµСЂРµРґР°РЅРЅС‹Рµ РєР°РґСЂС‹
+                obj.NumErBits   = 0; % РћС€РёР±РѕС‡РЅС‹Рµ Р±РёС‚С‹
+                obj.NumErFrames = 0; % РћС€РёР±РѕС‡РЅС‹Рµ РєР°РґСЂС‹
+            % РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РїРµСЂРµРјРµРЅРЅС‹С… РґР»СЏ СЂР°СЃС‡РµС‚Р°
+                obj.isMainCalcFinished = false; % Р¤Р»Р°Рі Р·Р°РІРµСЂС€РµРЅРёСЏ
+                obj.h2dBStep = obj.h2dBInitStep; % РўРµРєСѓС‰РёР№ С€Р°Рі
+                obj.Addh2dBs = []; % Р”РѕРї. С‚РѕС‡РєРё РїСѓСЃС‚С‹
+            % РџСЂРѕРІРµСЂРєР° Рё СЃРѕР·РґР°РЅРёРµ РґРёСЂРµРєС‚РѕСЂРёРё
+                if ~isfolder(obj.SaveDirName) % Р•СЃР»Рё РїР°РїРєРё РЅРµС‚
+                    mkdir(obj.SaveDirName); % РЎРѕР·РґР°С‚СЊ РїР°РїРєСѓ
                 end
-
-            % Имя файла для сохранения лога
-                if isunix % Linux platform
-                    % Code to run on Linux platform
-                    PathDelimiter = '/';
-                elseif ispc % Windows platform
-                    % Code to run on Windows platform
-                    PathDelimiter = '\';
-                else
-                    if strcmp(obj.LogLanguage, 'Russian')
-                        error('Не удаётся определить платформу!');
-                    else
-                        error('Cannot recognize platform!');
+            % РћРїСЂРµРґРµР»РµРЅРёРµ СЂР°Р·РґРµР»РёС‚РµР»СЏ РїСѓС‚Рё
+                if isunix % Р•СЃР»Рё Linux
+                    PathDelimiter = '/'; % Р Р°Р·РґРµР»РёС‚РµР»СЊ '/'
+                elseif ispc % Р•СЃР»Рё Windows
+                    PathDelimiter = '\'; % Р Р°Р·РґРµР»РёС‚РµР»СЊ '\'
+                else % Р•СЃР»Рё РЅРµРёР·РІРµСЃС‚РЅРѕ
+                    if strcmp(obj.LogLanguage, 'Russian') % Р СѓСЃСЃРєРёР№
+                        error('РќРµ СѓРґР°Р»РѕСЃСЊ РѕРїСЂРµРґРµР»РёС‚СЊ РїР»Р°С‚С„РѕСЂРјСѓ!'); % РћС€РёР±РєР°
+                    else % РђРЅРіР»РёР№СЃРєРёР№
+                        error('Cannot recognize platform!'); % РћС€РёР±РєР°
                     end
                 end            
-                obj.FullLogFileName = [obj.SaveDirName, PathDelimiter, ...
-                    obj.SaveFileName, '.log'];
-                
-            % Имя файла для сохранения результатов
-                obj.FullSaveFileName = [obj.SaveDirName, PathDelimiter, ...
-                    obj.SaveFileName, '.mat'];
-                
-            % Лог
-            % На самом деле ведутся два лога, первый для вывода на экран,
-            % второй - для сохранения в файл
-                % Первая строка
-                    if strcmp(obj.LogLanguage, 'Russian')
-                        LogStr1 = sprintf(['%s Старт вычисления ', ...
-                            'кривой %s (%d из %d).\n'], datestr(now), ...
-                            obj.SaveFileName, ParamsNum, NumParams);
-                    else
-                        LogStr1 = sprintf(['%s Start of calculation ', ...
-                            'the curve %s (%d of %d).\n'], ...
-                            datestr(now), obj.SaveFileName, ParamsNum, ...
-                            NumParams);
+                obj.FullLogFileName = [obj.SaveDirName, PathDelimiter, ... % РџРѕР»РЅС‹Р№ РїСѓС‚СЊ
+                    obj.SaveFileName, '.log']; % Р›РѕРі-С„Р°Р№Р»Р°
+                obj.FullSaveFileName = [obj.SaveDirName, PathDelimiter, ... % РџРѕР»РЅС‹Р№ РїСѓС‚СЊ
+                    obj.SaveFileName, '.mat']; % Р¤Р°Р№Р»Р° РґР°РЅРЅС‹С…
+            % Р’С‹РІРѕРґ РЅР°С‡Р°Р»СЊРЅРѕРіРѕ Р»РѕРіР°
+                if strcmp(obj.LogLanguage, 'Russian') % Р•СЃР»Рё СЂСѓСЃСЃРєРёР№
+                    LogStr1 = sprintf(['%s РЎС‚Р°СЂС‚ РІС‹С‡РёСЃР»РµРЅРёСЏ ', ... % Р¤РѕСЂРјР°С‚
+                        'РєСЂРёРІРѕР№ %s (%d РёР· %d).\n'], datestr(now), ... % РџРѕРґСЃС‚Р°РЅРѕРІРєР°
+                        obj.SaveFileName, ParamsNum, NumParams); % Р”Р°РЅРЅС‹С…
+                else % Р•СЃР»Рё Р°РЅРіР»РёР№СЃРєРёР№
+                    LogStr1 = sprintf(['%s Start of calculation ', ... % Р¤РѕСЂРјР°С‚
+                        'the curve %s (%d of %d).\n'], ... % РџРѕРґСЃС‚Р°РЅРѕРІРєР°
+                        datestr(now), obj.SaveFileName, ParamsNum, ... % Р”Р°РЅРЅС‹С…
+                        NumParams); % РџР°СЂР°РјРµС‚СЂРѕРІ
+                end
+                if strcmp(obj.LogLanguage, 'Russian') % Р•СЃР»Рё СЂСѓСЃСЃРєРёР№
+                    LogStr2 = sprintf(['%s   РЎС‚Р°СЂС‚ РѕСЃРЅРѕРІРЅС‹С… ', ... % Р¤РѕСЂРјР°С‚
+                        'РІС‹С‡РёСЃР»РµРЅРёР№.\n'], datestr(now)); % РџРѕРґСЃС‚Р°РЅРѕРІРєР° РІСЂРµРјРµРЅРё
+                else % Р•СЃР»Рё Р°РЅРіР»РёР№СЃРєРёР№
+                    LogStr2 = sprintf(['%s   Start of the ', ... % Р¤РѕСЂРјР°С‚
+                        'main calculations.\n'], datestr(now)); % РџРѕРґСЃС‚Р°РЅРѕРІРєР° РІСЂРµРјРµРЅРё
+                end                        
+            % РЎРѕС…СЂР°РЅРµРЅРёРµ Р»РѕРіР° РІ РјР°СЃСЃРёРІ
+                obj.Log = cell(2, 1); % РЇС‡РµР№РєР° РґР»СЏ Р»РѕРіРѕРІ
+                obj.Log{1} = {LogStr1; LogStr2}; % Р’ РѕРєРЅРѕ
+                obj.Log{2} = obj.Log{1}; % Р’ С„Р°Р№Р»
+                for k = 1:2 % Р¦РёРєР» РїРѕ Р»РѕРіР°Рј
+                    if k == 1 % Р”Р»СЏ РѕРєРЅР°
+                        obj.PrintLog(k, obj.isRealTimeLog(k)); % РџРµС‡Р°С‚СЊ
+                    else % Р”Р»СЏ С„Р°Р№Р»Р°
+                        obj.PrintLog(k, 1); % РџРµС‡Р°С‚СЊ
                     end
-                % Вторая строка
-                    if strcmp(obj.LogLanguage, 'Russian')
-                        LogStr2 = sprintf(['%s   Старт основных ', ...
-                            'вычислений.\n'], datestr(now));
-                    else
-                        LogStr2 = sprintf(['%s   Start of the ', ...
-                            'main calculations.\n'], datestr(now));
-                    end                        
-
-                % Сохраним строки в лог
-                    obj.Log = cell(2, 1); % заготовка под два лога
-                    obj.Log{1} = {LogStr1; LogStr2};
-                    obj.Log{2} = obj.Log{1}; % копируем первый лог во
-                        % второй
-
-                    for k = 1:2
-                        if k == 1
-                            obj.PrintLog(k, obj.isRealTimeLog(k));
-                        else
-                            obj.PrintLog(k, 1);
-                        end
-                        if obj.isRealTimeLog(k)
-                            % Заготовка для следующей строки
-                            obj.Log{k}{3} = '';
-                        else
-                            obj.Log{k} = cell(0);
-                        end
+                    if obj.isRealTimeLog(k) % Р•СЃР»Рё СЂРµР°Р»С‚Р°Р№Рј
+                        obj.Log{k}{3} = ''; % РћС‡РёСЃС‚РєР° СЃС‚СЂРѕРєРё
+                    else % РРЅР°С‡Рµ
+                        obj.Log{k} = cell(0); % РћС‡РёСЃС‚РєР° Р»РѕРіР°
                     end
+                end
         end
-        function isPointFinished = Step(obj, Objs)
-            % Обновление статистики
-                for k = 1:length(Objs)
-                    obj.NumTrBits(end)   = obj.NumTrBits(end)   + ...
-                        Objs{k}.Stat.NumTrBits;
-                    obj.NumTrFrames(end) = obj.NumTrFrames(end) + ...
-                        Objs{k}.Stat.NumTrFrames;
-                    
-                    obj.NumErBits(end)   = obj.NumErBits(end)   + ...
-                        Objs{k}.Stat.NumErBits;
-                    obj.NumErFrames(end) = obj.NumErFrames(end) + ...
-                        Objs{k}.Stat.NumErFrames;
-                    
-                    Objs{k}.Stat.Reset();
+        function isPointFinished = Step(obj, Objs) % РЁР°Рі РјРѕРґРµР»РёСЂРѕРІР°РЅРёСЏ
+            % РћР±РЅРѕРІР»РµРЅРёРµ СЃС‚Р°С‚РёСЃС‚РёРєРё
+                for k = 1:length(Objs) % Р¦РёРєР» РїРѕ РѕР±СЉРµРєС‚Р°Рј
+                    obj.NumTrBits(end)   = obj.NumTrBits(end)   + ... % РќР°РєРѕРїР»РµРЅРёРµ Р±РёС‚
+                        Objs{k}.Stat.NumTrBits; % РР· СЃС‚Р°С‚РёСЃС‚РёРєРё
+                    obj.NumTrFrames(end) = obj.NumTrFrames(end) + ... % РќР°РєРѕРїР»РµРЅРёРµ РєР°РґСЂРѕРІ
+                        Objs{k}.Stat.NumTrFrames; % РР· СЃС‚Р°С‚РёСЃС‚РёРєРё
+                    obj.NumErBits(end)   = obj.NumErBits(end)   + ... % РќР°РєРѕРїР»РµРЅРёРµ РѕС€РёР±РѕРє
+                        Objs{k}.Stat.NumErBits; % РР· СЃС‚Р°С‚РёСЃС‚РёРєРё
+                    obj.NumErFrames(end) = obj.NumErFrames(end) + ... % РќР°РєРѕРїР»РµРЅРёРµ РєР°РґСЂРѕРІ СЃ РѕС€РёР±РєР°РјРё
+                        Objs{k}.Stat.NumErFrames; % РР· СЃС‚Р°С‚РёСЃС‚РёРєРё
+                    Objs{k}.Stat.Reset(); % РЎР±СЂРѕСЃ СЃС‚Р°С‚РёСЃС‚РёРєРё РІРѕСЂРєРµСЂР°
                 end
-
-            % Определим, превышена ли сложность расчёта одной точки
-                isComplexityExceeded = false;
-                if (obj.NumTrBits(end) > obj.MaxNumTrBits) || ...
-                        (obj.NumTrFrames(end) > obj.MaxNumTrFrames)
-                    isComplexityExceeded = true;
+            % РџСЂРѕРІРµСЂРєР° РїСЂРµРІС‹С€РµРЅРёСЏ СЃР»РѕР¶РЅРѕСЃС‚Рё
+                isComplexityExceeded = false; % Р¤Р»Р°Рі СЃР»РѕР¶РЅРѕСЃС‚Рё
+                if (obj.NumTrBits(end) > obj.MaxNumTrBits) || ... % Р•СЃР»Рё Р±РёС‚ Р±РѕР»СЊС€Рµ
+                        (obj.NumTrFrames(end) > obj.MaxNumTrFrames) % РР»Рё РєР°РґСЂРѕРІ Р±РѕР»СЊС€Рµ
+                    isComplexityExceeded = true; % РЈСЃС‚Р°РЅРѕРІРёС‚СЊ С„Р»Р°Рі
                 end
-            
-            % Определим закончен ли расчёт для текущей точки - либо
-            % достигнуты минимальные показатели, либо превышена сложность
-            % расчёта
-                isPointFinished = false;
-                if ((obj.NumErBits(end) >= obj.MinNumErBits) && ...
-                        (obj.NumErFrames(end) >= obj.MinNumErFrames) && ...
-                        (obj.NumTrFrames(end) >= obj.MinNumTrFrames)) || ...
-                        isComplexityExceeded
-                    isPointFinished = true;
+            % РџСЂРѕРІРµСЂРєР° Р·Р°РІРµСЂС€РµРЅРёСЏ С‚РѕС‡РєРё
+                isPointFinished = false; % Р¤Р»Р°Рі Р·Р°РІРµСЂС€РµРЅРёСЏ С‚РѕС‡РєРё
+                if ((obj.NumErBits(end) >= obj.MinNumErBits) && ... % Р•СЃР»Рё РѕС€РёР±РѕРє С…РІР°С‚Р°РµС‚
+                        (obj.NumErFrames(end) >= obj.MinNumErFrames) && ... % Р РєР°РґСЂРѕРІ С…РІР°С‚Р°РµС‚
+                        (obj.NumTrFrames(end) >= obj.MinNumTrFrames)) || ... % Р РєР°РґСЂРѕРІ РїРµСЂРµРґР°РЅРѕ
+                        isComplexityExceeded % РР»Рё РїСЂРµРІС‹С€РµРЅР° СЃР»РѕР¶РЅРѕСЃС‚СЊ
+                    isPointFinished = true; % Р—Р°РІРµСЂС€РёС‚СЊ С‚РѕС‡РєСѓ
                 end
-
-            % Лог
-                % Новая строка
-                    LogStr = sprintf(['%s     h2 = %', ...
-                        obj.strh2NumDigits, '.', obj.strh2Precision, ...
-                        'f дБ; h2Step = %', obj.strh2NumDigits, '.', ...
-                        obj.strh2Precision, 'f дБ; BER = %0.', ...
-                        obj.strBERPrecision, 'f = %', ...
-                        obj.strBERNumRateDigits, 'd/%', ...
-                        obj.strBERNumRateDigits, 'd; FER = %', ...
-                        obj.strFERNumRateDigits, 'd/%', ...
-                        obj.strFERNumRateDigits, 'd\n'], datestr(now), ...
-                        obj.h2dB, obj.h2dBStep, obj.NumErBits(end) / ...
-                        obj.NumTrBits(end), obj.NumErBits(end), ...
-                        obj.NumTrBits(end), obj.NumErFrames(end), ...
-                        obj.NumTrFrames(end));
-                    if strcmp(obj.LogLanguage, 'Russian')
-                    else
-                        LogStr = strrep(LogStr, 'дБ', 'dB');
+            % Р¤РѕСЂРјРёСЂРѕРІР°РЅРёРµ СЃС‚СЂРѕРєРё Р»РѕРіР°
+                    LogStr = sprintf(['%s     h2 = %', ... % Р¤РѕСЂРјР°С‚ Р»РѕРіР°
+                        obj.strh2NumDigits, '.', obj.strh2Precision, ... % РўРѕС‡РЅРѕСЃС‚СЊ h2
+                        'f РґР‘; h2Step = %', obj.strh2NumDigits, '.', ... % РўРѕС‡РЅРѕСЃС‚СЊ С€Р°РіР°
+                        obj.strh2Precision, 'f РґР‘; BER = %0.', ... % РўРѕС‡РЅРѕСЃС‚СЊ BER
+                        obj.strBERPrecision, 'f = %', ... % Р¤РѕСЂРјР°С‚ BER
+                        obj.strBERNumRateDigits, 'd/%', ... % Р¤РѕСЂРјР°С‚ РѕС€РёР±РѕРє
+                        obj.strBERNumRateDigits, 'd; FER = %', ... % Р¤РѕСЂРјР°С‚ FER
+                        obj.strFERNumRateDigits, 'd/%', ... % Р¤РѕСЂРјР°С‚ РѕС€РёР±РѕРє РєР°РґСЂРѕРІ
+                        obj.strFERNumRateDigits, 'd\n'], datestr(now), ... % Р’СЂРµРјСЏ
+                        obj.h2dB, obj.h2dBStep, obj.NumErBits(end) / ... % Р—РЅР°С‡РµРЅРёСЏ
+                        obj.NumTrBits(end), obj.NumErBits(end), ... % Р—РЅР°С‡РµРЅРёСЏ
+                        obj.NumTrBits(end), obj.NumErFrames(end), ... % Р—РЅР°С‡РµРЅРёСЏ
+                        obj.NumTrFrames(end)); % Р—РЅР°С‡РµРЅРёСЏ
+                    if strcmp(obj.LogLanguage, 'Russian') % Р•СЃР»Рё СЂСѓСЃСЃРєРёР№
+                    else % РђРЅРіР»РёР№СЃРєРёР№
+                        LogStr = strrep(LogStr, 'РґР‘', 'dB'); % Р—Р°РјРµРЅР°
                     end
-
-                    if isPointFinished
-                        if strcmp(obj.LogLanguage, 'Russian')
-                            SubS = ' Завершено';
-                            if isComplexityExceeded
-                                SubS = [SubS, ' (превышена сложность)'];
+                    if isPointFinished % Р•СЃР»Рё С‚РѕС‡РєР° Р·Р°РІРµСЂС€РµРЅР°
+                        if strcmp(obj.LogLanguage, 'Russian') % Р•СЃР»Рё СЂСѓСЃСЃРєРёР№
+                            SubS = ' Р—Р°РІРµСЂС€РµРЅРѕ'; % РўРµРєСЃС‚ Р·Р°РІРµСЂС€РµРЅРёСЏ
+                            if isComplexityExceeded % Р•СЃР»Рё СЃР»РѕР¶РЅРѕСЃС‚СЊ
+                                SubS = [SubS, ' (РїСЂРµРІС‹С€РµРЅР° СЃР»РѕР¶РЅРѕСЃС‚СЊ)']; % Р”РѕР±Р°РІРёС‚СЊ
                             end
-                        else
-                            SubS = ' Completed';
-                            if isComplexityExceeded
-                                SubS = [SubS, ' (complexity exceeded)'];
+                        else % РђРЅРіР»РёР№СЃРєРёР№
+                            SubS = ' Completed'; % РўРµРєСЃС‚ Р·Р°РІРµСЂС€РµРЅРёСЏ
+                            if isComplexityExceeded % Р•СЃР»Рё СЃР»РѕР¶РЅРѕСЃС‚СЊ
+                                SubS = [SubS, ' (complexity exceeded)']; % Р”РѕР±Р°РІРёС‚СЊ
                             end
                         end                        
-                        LogStr = [LogStr(1:end-1), SubS, LogStr(end)];
+                        LogStr = [LogStr(1:end-1), SubS, LogStr(end)]; % РЎРєР»РµР№РєР°
                     end
-
-                % Добавим новую строку к логу
-                    for k = 1:2
-                        if obj.isRealTimeLog(k)
-                            obj.Log{k}{end} = LogStr;
-                        else
-                            if isPointFinished
-                                obj.Log{k} = {LogStr};
+                % РЎРѕС…СЂР°РЅРµРЅРёРµ Р»РѕРіР°
+                    for k = 1:2 % Р¦РёРєР» РїРѕ Р»РѕРіР°Рј
+                        if obj.isRealTimeLog(k) % Р•СЃР»Рё СЂРµР°Р»С‚Р°Р№Рј
+                            obj.Log{k}{end} = LogStr; % РћР±РЅРѕРІРёС‚СЊ
+                        else % РРЅР°С‡Рµ
+                            if isPointFinished % Р•СЃР»Рё С‚РѕС‡РєР° Р·Р°РІРµСЂС€РµРЅР°
+                                obj.Log{k} = {LogStr}; % РЎРѕС…СЂР°РЅРёС‚СЊ
                             end
                         end
                     end
-
-            % Если мы находимся в основном расчёте, то по значениям BER,
-            % FER и isComplexityExceeded проверим, не завершился ли он
-                isMainCalcJustFinished = false; % для нужд лога
-                if isPointFinished && ~obj.isMainCalcFinished
-                    BER = obj.NumErBits   ./ obj.NumTrBits;
-                    FER = obj.NumErFrames ./ obj.NumTrFrames;
-                    
-                    if ((BER(end) < obj.MinBER) && ...
-                        (FER(end) < obj.MinFER)) || ...
-                        isComplexityExceeded
-                        obj.isMainCalcFinished = true;
-                        obj.h2dBStep = nan; % Формально
-                        isMainCalcJustFinished = true; % для нужд лога
+            % РџСЂРѕРІРµСЂРєР° Р·Р°РІРµСЂС€РµРЅРёСЏ РѕСЃРЅРѕРІРЅС‹С… СЂР°СЃС‡РµС‚РѕРІ
+                isMainCalcJustFinished = false; % Р¤Р»Р°Рі Р·Р°РІРµСЂС€РµРЅРёСЏ
+                if isPointFinished && ~obj.isMainCalcFinished % Р•СЃР»Рё С‚РѕС‡РєР° Р·Р°РІРµСЂС€РµРЅР°
+                    BER = obj.NumErBits   ./ obj.NumTrBits; % Р’С‹С‡РёСЃР»РµРЅРёРµ BER
+                    FER = obj.NumErFrames ./ obj.NumTrFrames; % Р’С‹С‡РёСЃР»РµРЅРёРµ FER
+                    if ((BER(end) < obj.MinBER) && ... % Р•СЃР»Рё BER РјРµРЅСЊС€Рµ
+                        (FER(end) < obj.MinFER)) || ... % Р FER РјРµРЅСЊС€Рµ
+                        isComplexityExceeded % РР»Рё СЃР»РѕР¶РЅРѕСЃС‚СЊ
+                        obj.isMainCalcFinished = true; % Р—Р°РІРµСЂС€РёС‚СЊ СЂР°СЃС‡РµС‚С‹
+                        obj.h2dBStep = nan; % РЎР±СЂРѕСЃ С€Р°РіР°
+                        isMainCalcJustFinished = true; % Р¤Р»Р°Рі Р·Р°РІРµСЂС€РµРЅРёСЏ
                     end
-                    
-                    if length(BER) > 1
-                        BERRate = BER(1:end-1) ./ BER(2:end);
-                    else
-                        BERRate = 0.5*(obj.MinBERRate + obj.MaxBERRate);
+                    if length(BER) > 1 % Р•СЃР»Рё С‚РѕС‡РµРє Р±РѕР»СЊС€Рµ 1
+                        BERRate = BER(1:end-1) ./ BER(2:end); % РћС‚РЅРѕС€РµРЅРёРµ BER
+                    else % РРЅР°С‡Рµ
+                        BERRate = 0.5*(obj.MinBERRate + obj.MaxBERRate); % РЎСЂРµРґРЅРµРµ
                     end
                 end
-                
-            % Переход к новой точке для случая основного расчёта точек
-                if isPointFinished && ~obj.isMainCalcFinished
-                    % Обновим значение h2dBStep
-                        if BERRate(end) > obj.MaxBERRate
-                            % Вариант 1: стандартный
-                                % Buf = obj.Round(0.5*obj.h2dBStep);
-                                % obj.h2dBStep = max(Buf, obj.h2dBMinStep);
-                            % Вариант 2: лучше ралботает в случае
-                            % эффективных помехоустойчивых кодов
-                                RRate = BERRate(end) / obj.MaxBERRate;
-                                if                      (RRate <  4)
-                                    DecFact = 1/2;
-                                elseif (RRate >=  4) && (RRate < 16)
-                                    DecFact = 1/4;
-                                elseif (RRate >= 16) && (RRate < 64)
-                                    DecFact = 1/8;
-                                elseif (RRate >= 64)
-                                    DecFact = 1/16;
+            % Р Р°СЃС‡РµС‚ СЃР»РµРґСѓСЋС‰РµР№ С‚РѕС‡РєРё
+                if isPointFinished && ~obj.isMainCalcFinished % Р•СЃР»Рё С‚РѕС‡РєР° Р·Р°РІРµСЂС€РµРЅР°
+                    % РљРѕСЂСЂРµРєС‚РёСЂРѕРІРєР° С€Р°РіР° h2dBStep
+                        if BERRate(end) > obj.MaxBERRate % Р•СЃР»Рё РѕС‚РЅРѕС€РµРЅРёРµ Р±РѕР»СЊС€РѕРµ
+                            RRate = BERRate(end) / obj.MaxBERRate; % Р’С‹С‡РёСЃР»РµРЅРёРµ
+                            if                      (RRate <  4) % Р•СЃР»Рё РјРµРЅСЊС€Рµ 4
+                                DecFact = 1/2; % РљРѕСЌС„С„РёС†РёРµРЅС‚ 1/2
+                            elseif (RRate >=  4) && (RRate < 16) % Р•СЃР»Рё 4-16
+                                DecFact = 1/4; % РљРѕСЌС„С„РёС†РёРµРЅС‚ 1/4
+                            elseif (RRate >= 16) && (RRate < 64) % Р•СЃР»Рё 16-64
+                                DecFact = 1/8; % РљРѕСЌС„С„РёС†РёРµРЅС‚ 1/8
+                            elseif (RRate >= 64) % Р•СЃР»Рё Р±РѕР»СЊС€Рµ 64
+                                DecFact = 1/16; % РљРѕСЌС„С„РёС†РёРµРЅС‚ 1/16
+                            end
+                            Buf = obj.Round(DecFact*obj.h2dBStep); % РЈРјРµРЅСЊС€РµРЅРёРµ С€Р°РіР°
+                            obj.h2dBStep = max(Buf, obj.h2dBMinStep); % РћРіСЂР°РЅРёС‡РµРЅРёРµ
+                        elseif BERRate(end) < obj.MinBERRate % Р•СЃР»Рё РѕС‚РЅРѕС€РµРЅРёРµ РјР°Р»РµРЅСЊРєРѕРµ
+                            Buf = obj.Round(2*obj.h2dBStep); % РЈРІРµР»РёС‡РµРЅРёРµ С€Р°РіР°
+                            obj.h2dBStep = min(Buf, obj.h2dBMaxStep); % РћРіСЂР°РЅРёС‡РµРЅРёРµ
+                        end
+                    % Р Р°СЃС‡РµС‚ РЅРѕРІРѕРіРѕ h2dB
+                        obj.h2dB = obj.h2dB + obj.h2dBStep; % РџСЂРёР±Р°РІР»РµРЅРёРµ С€Р°РіР°
+                    % РџСЂРѕРІРµСЂРєР° РІС‹С…РѕРґР° Р·Р° h2dBMax
+                        if obj.h2dB > obj.h2dBMax % Р•СЃР»Рё Р±РѕР»СЊС€Рµ РјР°РєСЃ.
+                            obj.isMainCalcFinished = true; % Р—Р°РІРµСЂС€РёС‚СЊ
+                            isMainCalcJustFinished = true; % Р¤Р»Р°Рі Р·Р°РІРµСЂС€РµРЅРёСЏ
+                        end
+                    % РџСЂРѕРІРµСЂРєР° РЅСѓР»РµРІРѕРіРѕ С€Р°РіР°
+                        if obj.h2dBStep < eps % Р•СЃР»Рё С€Р°Рі РјР°Р»
+                            obj.isMainCalcFinished = true; % Р—Р°РІРµСЂС€РёС‚СЊ
+                            isMainCalcJustFinished = true; % Р¤Р»Р°Рі Р·Р°РІРµСЂС€РµРЅРёСЏ
+                        end
+                end
+            % Р’С‹РІРѕРґ Р»РѕРіР° Рѕ Р·Р°РІРµСЂС€РµРЅРёРё СЂР°СЃС‡РµС‚РѕРІ
+                if isMainCalcJustFinished % Р•СЃР»Рё С‚РѕР»СЊРєРѕ С‡С‚Рѕ Р·Р°РІРµСЂС€РёР»Рё
+                    if strcmp(obj.LogLanguage, 'Russian') % Р•СЃР»Рё СЂСѓСЃСЃРєРёР№
+                        LogStr = '   РћСЃРЅРѕРІРЅС‹Рµ РІС‹С‡РёСЃР»РµРЅРёСЏ Р·Р°РІРµСЂС€РµРЅС‹.'; % РўРµРєСЃС‚
+                        if obj.h2dB > obj.h2dBMax % Р•СЃР»Рё РІС‹С…РѕРґ Р·Р° РјР°РєСЃ.
+                            LogStr = [LogStr, ' (РїСЂРµРІС‹С€РµРЅРѕ ', ... % Р”РѕР±Р°РІРёС‚СЊ
+                                'РјР°РєСЃРёРјР°Р»СЊРЅРѕРµ РћРЎРЁ)']; % РўРµРєСЃС‚
+                        end
+                        if obj.h2dBStep < eps % Р•СЃР»Рё РЅСѓР»РµРІРѕР№ С€Р°Рі
+                            LogStr = [LogStr, ' (РїРѕР»СѓС‡РµРЅ РЅСѓР»РµРІРѕР№ С€Р°Рі h2)']; % Р”РѕР±Р°РІРёС‚СЊ
+                        end
+                    else % РђРЅРіР»РёР№СЃРєРёР№
+                        LogStr = '   The main calculations are completed.'; % РўРµРєСЃС‚
+                        if obj.h2dB > obj.h2dBMax % Р•СЃР»Рё РІС‹С…РѕРґ Р·Р° РјР°РєСЃ.
+                            LogStr = [LogStr, ' (Maximum SNR is ', ... % Р”РѕР±Р°РІРёС‚СЊ
+                                'exceeded)']; % РўРµРєСЃС‚
+                        end
+                        if obj.h2dBStep < eps % Р•СЃР»Рё РЅСѓР»РµРІРѕР№ С€Р°Рі
+                            LogStr = [LogStr, ' (Zero h2 step obtained)']; % Р”РѕР±Р°РІРёС‚СЊ
+                        end
+                    end
+                    LogStr = sprintf('%s%s\n', datestr(now), LogStr); % Р¤РѕСЂРјР°С‚
+                    for k = 1:2 % Р¦РёРєР» РїРѕ Р»РѕРіР°Рј
+                        obj.Log{k}{end+1} = LogStr; % Р”РѕР±Р°РІРёС‚СЊ РІ Р»РѕРі
+                    end
+                end
+            % РЈРґР°Р»РµРЅРёРµ Р»РёС€РЅРёС… С‚РѕС‡РµРє РїСЂРё РїСЂРµРІС‹С€РµРЅРёРё СЃР»РѕР¶РЅРѕСЃС‚Рё
+                if isPointFinished && obj.isMainCalcFinished && ... % Р•СЃР»Рё С‚РѕС‡РєР° Р·Р°РІРµСЂС€РµРЅР°
+                        isComplexityExceeded && ~isMainCalcJustFinished % Р СЃР»РѕР¶РЅРѕСЃС‚СЊ
+                    Poses = (obj.h2dBs <= obj.h2dB); % РџРѕР·РёС†РёРё РґР»СЏ СѓРґР°Р»РµРЅРёСЏ
+                    obj.h2dBs       = obj.h2dBs      (Poses); % РЈРґР°Р»РµРЅРёРµ h2
+                    obj.NumTrBits   = obj.NumTrBits  (Poses); % РЈРґР°Р»РµРЅРёРµ Р±РёС‚
+                    obj.NumTrFrames = obj.NumTrFrames(Poses); % РЈРґР°Р»РµРЅРёРµ РєР°РґСЂРѕРІ
+                    obj.NumErBits   = obj.NumErBits  (Poses); % РЈРґР°Р»РµРЅРёРµ РѕС€РёР±РѕРє
+                    obj.NumErFrames = obj.NumErFrames(Poses); % РЈРґР°Р»РµРЅРёРµ РєР°РґСЂРѕРІ СЃ РѕС€РёР±РєР°РјРё
+                    NumDeleted1 = length(Poses) - sum(Poses); % РљРѕР»РёС‡РµСЃС‚РІРѕ СѓРґР°Р»РµРЅРЅС‹С…
+                    Poses = (obj.Addh2dBs <= obj.h2dB); % РџРѕР·РёС†РёРё РґРѕРї. С‚РѕС‡РµРє
+                    obj.Addh2dBs = obj.Addh2dBs(Poses); % РЈРґР°Р»РµРЅРёРµ РґРѕРї. С‚РѕС‡РµРє
+                    NumDeleted2 = length(Poses) - sum(Poses); % РљРѕР»РёС‡РµСЃС‚РІРѕ СѓРґР°Р»РµРЅРЅС‹С…
+                    if strcmp(obj.LogLanguage, 'Russian') % Р•СЃР»Рё СЂСѓСЃСЃРєРёР№
+                        LogStr = sprintf([ ... % Р¤РѕСЂРјР°С‚
+                            '%s     РЈРґР°Р»РµРЅРѕ %d С‚РѕС‡РµРє РёР· ', ... % РўРµРєСЃС‚
+                            'РѕСЃРЅРѕРІРЅС‹С… РІС‹С‡РёСЃР»РµРЅРёР№ Рё ', ... % РўРµРєСЃС‚
+                            'СѓРґР°Р»РµРЅРѕ %d Р·РЅР°С‡РµРЅРёР№ h2, ', ... % РўРµРєСЃС‚
+                            'РїСЂРµРґРЅР°Р·РЅР°С‡РµРЅРЅС‹С… РІ ', ... % РўРµРєСЃС‚
+                            'РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹Рµ РІС‹С‡РёСЃР»РµРЅРёСЏ.\n'], ... % РўРµРєСЃС‚
+                            datestr(now), NumDeleted1, NumDeleted2); % Р”Р°РЅРЅС‹Рµ
+                    else % РђРЅРіР»РёР№СЃРєРёР№
+                        LogStr = sprintf([ ... % Р¤РѕСЂРјР°С‚
+                            '%s     %d results are deleted from ', ... % РўРµРєСЃС‚
+                            'main calculations and %d values of ', ... % РўРµРєСЃС‚
+                            'h2 are deleted from the set for ', ... % РўРµРєСЃС‚
+                            'additional calculations .\n'], ... % РўРµРєСЃС‚
+                            datestr(now), NumDeleted1, NumDeleted2); % Р”Р°РЅРЅС‹Рµ
+                    end      
+                    for k = 1:2 % Р¦РёРєР» РїРѕ Р»РѕРіР°Рј
+                        obj.Log{k}{end+1} = LogStr; % Р”РѕР±Р°РІРёС‚СЊ РІ Р»РѕРі
+                    end
+                end
+            % Р›РѕРіРёРєР° РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹С… РІС‹С‡РёСЃР»РµРЅРёР№
+                if isPointFinished && obj.isMainCalcFinished % Р•СЃР»Рё С‚РѕС‡РєР° Р·Р°РІРµСЂС€РµРЅР°
+                    % РћРїСЂРµРґРµР»РµРЅРёРµ РЅРѕРІС‹С… РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹С… С‚РѕС‡РµРє
+                        if isempty(obj.Addh2dBs) % Р•СЃР»Рё РґРѕРї. С‚РѕС‡РµРє РЅРµС‚
+                            % РЎРѕСЂС‚РёСЂРѕРІРєР° РѕСЃРЅРѕРІРЅС‹С… С‚РѕС‡РµРє
+                                [obj.h2dBs, I]  = sort(obj.h2dBs); % РЎРѕСЂС‚РёСЂРѕРІРєР°
+                                obj.NumTrBits   = obj.NumTrBits  (I); % РџРµСЂРµСЃС‚Р°РЅРѕРІРєР°
+                                obj.NumTrFrames = obj.NumTrFrames(I); % РџРµСЂРµСЃС‚Р°РЅРѕРІРєР°
+                                obj.NumErBits   = obj.NumErBits  (I); % РџРµСЂРµСЃС‚Р°РЅРѕРІРєР°
+                                obj.NumErFrames = obj.NumErFrames(I); % РџРµСЂРµСЃС‚Р°РЅРѕРІРєР°
+                            % Р’С‹С‡РёСЃР»РµРЅРёРµ BER Рё РѕС‚РЅРѕС€РµРЅРёР№
+                                BER = obj.NumErBits ./ obj.NumTrBits; % Р’С‹С‡РёСЃР»РµРЅРёРµ
+                                if length(BER) > 1 % Р•СЃР»Рё С‚РѕС‡РµРє Р±РѕР»СЊС€Рµ 1
+                                    BERRate = BER(1:end-1) ./ BER(2:end); % РћС‚РЅРѕС€РµРЅРёРµ
+                                else % РРЅР°С‡Рµ
+                                    BERRate = 0.5*(obj.MinBERRate + ... % РЎСЂРµРґРЅРµРµ
+                                        obj.MaxBERRate); % Р—РЅР°С‡РµРЅРёРµ
                                 end
-                                Buf = obj.Round(DecFact*obj.h2dBStep);
-                                obj.h2dBStep = max(Buf, obj.h2dBMinStep);
-                        elseif BERRate(end) < obj.MinBERRate
-                            Buf = obj.Round(2*obj.h2dBStep);
-                            obj.h2dBStep = min(Buf, obj.h2dBMaxStep);
-                        end
-                    % обновим значение h2dB
-                        obj.h2dB = obj.h2dB + obj.h2dBStep;
-                    % Проверим не превышено ли значение h2dBMax
-                        if obj.h2dB > obj.h2dBMax
-                            obj.isMainCalcFinished = true;
-                            isMainCalcJustFinished = true; % для нужд лога
-                        end
-                    % Проверим, не получилось ли из-за округлений
-                    % obj.h2dBStep = 0
-                        if obj.h2dBStep < eps
-                            obj.isMainCalcFinished = true;
-                            isMainCalcJustFinished = true; % для нужд лога
-                        end
-                end
-                
-            % Лог
-                if isMainCalcJustFinished
-                    if strcmp(obj.LogLanguage, 'Russian')
-                        LogStr = '   Основные вычисления завершены.';
-                        if obj.h2dB > obj.h2dBMax
-                            LogStr = [LogStr, ' (Превышено ', ...
-                                'максимальное ОСШ)'];
-                        end
-                        if obj.h2dBStep < eps
-                            LogStr = [LogStr, ' (Получен нулевой шаг h2)'];
-                        end
-                    else
-                        LogStr = '   The main calculations are completed.';
-                        if obj.h2dB > obj.h2dBMax
-                            LogStr = [LogStr, ' (Maximum SNR is ', ...
-                                'exceeded)'];
-                        end
-                        if obj.h2dBStep < eps
-                            LogStr = [LogStr, ' (Zero h2 step obtained)'];
-                        end
-                    end
-                    LogStr = sprintf('%s%s\n', datestr(now), LogStr);
-                    for k = 1:2
-                        obj.Log{k}{end+1} = LogStr;
-                    end
-                end
-                
-            % Если мы находимся в расчёте дополнительных точек и расчёт
-            % очередной точки завершился из-за превышения сложности, то
-            % нужно отбросить все точки с большими значениями h2
-                if isPointFinished && obj.isMainCalcFinished && ...
-                        isComplexityExceeded && ~isMainCalcJustFinished
-                    % Выкенем результаты с большими значениями h2
-                        Poses = (obj.h2dBs <= obj.h2dB);
-                        obj.h2dBs       = obj.h2dBs      (Poses);
-                        obj.NumTrBits   = obj.NumTrBits  (Poses);
-                        obj.NumTrFrames = obj.NumTrFrames(Poses);
-                        obj.NumErBits   = obj.NumErBits  (Poses);
-                        obj.NumErFrames = obj.NumErFrames(Poses);
-                        NumDeleted1 = length(Poses) - sum(Poses);
-                    % Выкенем из рассмотрения лишние Addh2dBs
-                        Poses = (obj.Addh2dBs <= obj.h2dB);
-                        obj.Addh2dBs = obj.Addh2dBs(Poses);
-                        NumDeleted2 = length(Poses) - sum(Poses);
-                    % Лог
-                        if strcmp(obj.LogLanguage, 'Russian')
-                            LogStr = sprintf([ ...
-                                '%s     Удалено %d точек из ', ...
-                                'результатов основных вычислений и ', ...
-                                'удалено %d значений h2, ', ...
-                                'предполагавшихся к рассмотрению в ', ...
-                                'дополнительных вычислениях.\n'], ...
-                                datestr(now), NumDeleted1, NumDeleted2);
-                        else
-                            LogStr = sprintf([ ...
-                                '%s     %d results are deleted from ', ...
-                                'main calculations and %d values of ', ...
-                                'h2 are deleted from the set for ', ...
-                                'additional calculations .\n'], ...
-                                datestr(now), NumDeleted1, NumDeleted2);
-                        end      
-                        for k = 1:2
-                            obj.Log{k}{end+1} = LogStr;
-                        end
-                end
-                
-            % Переход к новой точке для случая расчёта дополнительных точек
-                if isPointFinished && obj.isMainCalcFinished
-                    % Определим требуемые для расчёта дополнительные
-                    % значения h2dB или будем использовать расчитанные
-                    % ранее
-                        if isempty(obj.Addh2dBs)
-                            % Сортировка результата по возрастанию h2dBs
-                                [obj.h2dBs, I]  = sort(obj.h2dBs);
-                                obj.NumTrBits   = obj.NumTrBits  (I);
-                                obj.NumTrFrames = obj.NumTrFrames(I);
-                                obj.NumErBits   = obj.NumErBits  (I);
-                                obj.NumErFrames = obj.NumErFrames(I);
-                            % Вычисление BER и BERRate
-                                BER = obj.NumErBits ./ obj.NumTrBits;
-                                if length(BER) > 1
-                                    BERRate = BER(1:end-1) ./ BER(2:end);
-                                else
-                                    BERRate = 0.5*(obj.MinBERRate + ...
-                                        obj.MaxBERRate);
-                                end
-                            % Найдём места, где надо расчитать
-                            % дополнительные точки
-                                Poses = find(BERRate > obj.MaxBERRate);
-                                obj.Addh2dBs = (obj.h2dBs(Poses+1) + ...
-                                    obj.h2dBs(Poses)) / 2;
-                                obj.Addh2dBs = obj.Round(obj.Addh2dBs);
-                            % Отбросим те случаи, где получилось
-                            % слишком маленькое значение шага по оси h2
-                                % Вариант 1 расчёта значений шага
-                                    % h2dBSteps = (obj.h2dBs(Poses+1) - ...
-                                    %     obj.h2dBs(Poses)) / 2;
-                                % Вариант 2 расчёта значений шага
-                                    h2dBSteps = min([obj.Addh2dBs - ...
-                                        obj.h2dBs(Poses); ...
-                                        obj.h2dBs(Poses+1) - ...
-                                        obj.Addh2dBs]);
-                                    % Вариант 2 - более стабильный из-за
-                                    % округления obj.Addh2dBs
-                                Poses = (h2dBSteps + 1000*eps >= ...
-                                    obj.h2dBMinStep);
-                                    % + 1000*eps для более стабильной
-                                    % работы в случае, если h2dBSteps равно
-                                    % obj.h2dBMinStep
-                                obj.Addh2dBs = obj.Addh2dBs(Poses);
-                            % Разберёмся с логом
-                                if ~isempty(obj.Addh2dBs)
-                                    LogStr = sprintf([' %0.', ...
-                                        obj.strh2Precision, 'f'], ...
-                                        obj.Addh2dBs);
-                                    if strcmp(obj.LogLanguage, 'Russian')
-                                        LogStr = sprintf([ ...
-                                            '%s   Старт ', ...
-                                            'дополнительных ', ...
-                                            'вычислений [%s].\n'], ...
-                                            datestr(now), LogStr(2:end));
-                                    else
-                                        LogStr = sprintf([ ...
-                                            '%s   Start of the ', ...
-                                            'additional calculations ', ...
-                                            '[%s].\n'], datestr(now), ...
-                                            LogStr(2:end));
+                            % РџРѕРёСЃРє РјРµСЃС‚ РґР»СЏ РґРѕРї. С‚РѕС‡РµРє
+                                Poses = find(BERRate > obj.MaxBERRate); % РџРѕР·РёС†РёРё
+                                obj.Addh2dBs = (obj.h2dBs(Poses+1) + ... % РЎСЂРµРґРЅРµРµ
+                                    obj.h2dBs(Poses)) / 2; % Р—РЅР°С‡РµРЅРёРµ
+                                obj.Addh2dBs = obj.Round(obj.Addh2dBs); % РћРєСЂСѓРіР»РµРЅРёРµ
+                            % РџСЂРѕРІРµСЂРєР° СЂР°Р·РјРµСЂР° С€Р°РіР°
+                                    h2dBSteps = min([obj.Addh2dBs - ... % РњРёРЅ. С€Р°Рі
+                                        obj.h2dBs(Poses); ... % РР· РґРІСѓС…
+                                        obj.h2dBs(Poses+1) - ... % Р—РЅР°С‡РµРЅРёР№
+                                        obj.Addh2dBs]); % РЁР°РіР°
+                                    Poses = (h2dBSteps + 1000*eps >= ... % Р•СЃР»Рё С€Р°Рі
+                                    obj.h2dBMinStep); % Р”РѕСЃС‚Р°С‚РѕС‡РµРЅ
+                                obj.Addh2dBs = obj.Addh2dBs(Poses); % Р¤РёР»СЊС‚СЂР°С†РёСЏ
+                            % Р—Р°РїРёСЃСЊ РІ Р»РѕРі
+                                if ~isempty(obj.Addh2dBs) % Р•СЃР»Рё С‚РѕС‡РєРё РµСЃС‚СЊ
+                                    LogStr = sprintf([' %0.', ... % Р¤РѕСЂРјР°С‚
+                                        obj.strh2Precision, 'f'], ... % РўРѕС‡РЅРѕСЃС‚СЊ
+                                        obj.Addh2dBs); % Р—РЅР°С‡РµРЅРёСЏ
+                                    if strcmp(obj.LogLanguage, 'Russian') % Р•СЃР»Рё СЂСѓСЃСЃРєРёР№
+                                        LogStr = sprintf([ ... % Р¤РѕСЂРјР°С‚
+                                            '%s   РЎС‚Р°СЂС‚ ', ... % РўРµРєСЃС‚
+                                            'РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹С… ', ... % РўРµРєСЃС‚
+                                            'РІС‹С‡РёСЃР»РµРЅРёР№ [%s].\n'], ... % РўРµРєСЃС‚
+                                            datestr(now), LogStr(2:end)); % Р”Р°РЅРЅС‹Рµ
+                                    else % РђРЅРіР»РёР№СЃРєРёР№
+                                        LogStr = sprintf([ ... % Р¤РѕСЂРјР°С‚
+                                            '%s   Start of the ', ... % РўРµРєСЃС‚
+                                            'additional calculations ', ... % РўРµРєСЃС‚
+                                            '[%s].\n'], datestr(now), ... % РўРµРєСЃС‚
+                                            LogStr(2:end)); % Р”Р°РЅРЅС‹Рµ
                                     end      
-                                    for k = 1:2
-                                        obj.Log{k}{end+1} = LogStr;
+                                    for k = 1:2 % Р¦РёРєР» РїРѕ Р»РѕРіР°Рј
+                                        obj.Log{k}{end+1} = LogStr; % Р”РѕР±Р°РІРёС‚СЊ РІ Р»РѕРі
                                     end
                                 end
                         end
-
-                    % Переходим к очередному значению Addh2dBs
-                        if isempty(obj.Addh2dBs)
-                            obj.isStop = true;
-
-                            % Лог
-                                if ~isMainCalcJustFinished
-                                    if strcmp(obj.LogLanguage, 'Russian')
-                                        LogStr = sprintf(['%s   ', ...
-                                            'Дополнительные ', ...
-                                            'вычисления завершены.\n'], ...
-                                            datestr(now));
-                                    else
-                                        LogStr = sprintf(['%s   ', ...
-                                            'The additional ', ...
-                                            'calculations are ', ...
-                                            'completed.\n'], datestr(now));
-                                    end
-                                    for k = 1:2
-                                        obj.Log{k}{end+1} = LogStr;
-                                    end
+                    % Р—Р°РІРµСЂС€РµРЅРёРµ РёР»Рё РІС‹Р±РѕСЂ СЃР»РµРґСѓСЋС‰РµР№ С‚РѕС‡РєРё
+                        if isempty(obj.Addh2dBs) % Р•СЃР»Рё С‚РѕС‡РµРє РЅРµС‚
+                            obj.isStop = true; % РћСЃС‚Р°РЅРѕРІРєР°
+                            if ~isMainCalcJustFinished % Р•СЃР»Рё РЅРµ С‚РѕР»СЊРєРѕ С‡С‚Рѕ
+                                if strcmp(obj.LogLanguage, 'Russian') % Р•СЃР»Рё СЂСѓСЃСЃРєРёР№
+                                    LogStr = sprintf(['%s   ', ... % Р¤РѕСЂРјР°С‚
+                                        'Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹Рµ ', ... % РўРµРєСЃС‚
+                                        'РІС‹С‡РёСЃР»РµРЅРёСЏ Р·Р°РІРµСЂС€РµРЅС‹.\n'], ... % РўРµРєСЃС‚
+                                        datestr(now)); % Р”Р°РЅРЅС‹Рµ
+                                else % РђРЅРіР»РёР№СЃРєРёР№
+                                    LogStr = sprintf(['%s   ', ... % Р¤РѕСЂРјР°С‚
+                                        'The additional ', ... % РўРµРєСЃС‚
+                                        'calculations are ', ... % РўРµРєСЃС‚
+                                        'completed.\n'], datestr(now)); % Р”Р°РЅРЅС‹Рµ
                                 end
-                                if strcmp(obj.LogLanguage, 'Russian')
-                                    LogStr = sprintf(['%s ', ...
-                                        'Вычисления завершены.\n'], ...
-                                        datestr(now));
-                                else
-                                    LogStr = sprintf(['%s ', ...
-                                        'Calculations are ', ...
-                                        'completed.\n'], datestr(now));
-                                end
-                                for k = 1:2
-                                    obj.Log{k}{end+1} = LogStr;
-                                    obj.Log{k}{end+1} = newline;
-                                end
-                        else
-                            obj.h2dB = obj.Addh2dBs(1);
-                            obj.Addh2dBs = obj.Addh2dBs(2:end);
-                        end
-                end
-
-            % Подготовка к расчёту новой точки - добавление нового элемента
-            % в массивы и сброс генераторов случайных чисел в начальное
-            % состояние
-                if isPointFinished && ~obj.isStop
-                    obj.h2dBs       = [obj.h2dBs, obj.h2dB];
-                    obj.NumTrBits   = [obj.NumTrBits,   0];
-                    obj.NumTrFrames = [obj.NumTrFrames, 0];
-                    obj.NumErBits   = [obj.NumErBits,   0];
-                    obj.NumErFrames = [obj.NumErFrames, 0];
-                    obj.ResetRandStreams();
-                end
-                
-            % Вывод лога на экран и сохранение лога в файл
-                for k = 1:2
-                    obj.PrintLog(k, obj.isRealTimeLog(k));
-                    if obj.isRealTimeLog(k)
-                        if isPointFinished && ~obj.isStop
-                            obj.Log{k}{end+1} = '';
-                        end
-                    else
-                        obj.Log{k} = cell(0);
-                    end
-                end
-        end
-        function Saves(obj, Objs, Params) %#ok<INUSL>
-            % Можно просто сохранять все объекты и параметры:
-            % save(obj.FullSaveFileName, 'Objs', 'obj', 'Params');
-            % Однако в этом случае нужно будет обеспечивать наличие
-            % описаний классов при загрузке конструкторов в поле видимости
-            % MATLAB. Удобнее идти по другому пути - сохранять кривые
-            % помехоустойчивости и все параметры. Более того, если в
-            % параметрах оказываются какие-нибудь очень большие массивы или
-            % структуры, то их лучше предварительно удалять.
-            Res.h2dBs       = obj.h2dBs;
-            Res.NumErBits   = obj.NumErBits;
-            Res.NumTrBits   = obj.NumTrBits;
-            Res.NumErFrames = obj.NumErFrames;
-            Res.NumTrFrames = obj.NumTrFrames;
-            save(obj.FullSaveFileName, 'Res', 'Params');
-        end
-        function StartParallel(obj)
-        %
-        % Переход в режим параллельных вычислений (при необходимости)
-
-            % Определим параметры запущенного pool, если он есть
-                P = gcp('nocreate');
-
-            % Если pool есть, то он должен быть подключенным и количество
-            % worker должно совпадать с требуемым. Если pool отсутствует,
-            % то количество требуемых worker должно быть равно 1.
-                % Флаг соответствия запущенного pool нужным параметрам
-                    isOk = false;
-                if ~isempty(P)
-                    if P.Connected
-                        if isequal(P.NumWorkers, obj.NumWorkers)
-                            isOk = true;
-                        end
-                    end
-                else
-                    if isequal(obj.NumWorkers, 1)
-                        isOk = true;
-                    end
-                end
-
-            % Если имеющийся pool не соответствует заданным параметрам или
-            % его нет, то нужно его создать
-                if ~isOk
-                    % Удалим pool, если он есть
-                        if ~isempty(P)
-                            delete(P);
-                        end
-
-                    if obj.NumWorkers > 1
-                        % Попытаемся создать pool
-                            P = parpool(obj.NumWorkers);
-
-                        % Проверим, что удалось создать правильный pool
-                            isOk = false;
-                            if P.Connected
-                                if isequal(P.NumWorkers, obj.NumWorkers)
-                                    isOk = true;
+                                for k = 1:2 % Р¦РёРєР» РїРѕ Р»РѕРіР°Рј
+                                    obj.Log{k}{end+1} = LogStr; % Р”РѕР±Р°РІРёС‚СЊ РІ Р»РѕРі
                                 end
                             end
-
-                        % Если не удалось, выводим ошибку
-                            if ~isOk
-                                if strcmp(obj.LogLanguage, 'Russian')
-                                    error(['Не удалось запустить ', ...
-                                        'pool с заданными параметрами']);
-                                else
-                                    error(['Failed to start the pool ', ...
-                                        'with the specified parameters']);
+                            if strcmp(obj.LogLanguage, 'Russian') % Р•СЃР»Рё СЂСѓСЃСЃРєРёР№
+                                LogStr = sprintf(['%s ', ... % Р¤РѕСЂРјР°С‚
+                                    'Р’С‹С‡РёСЃР»РµРЅРёСЏ Р·Р°РІРµСЂС€РµРЅС‹.\n'], ... % РўРµРєСЃС‚
+                                    datestr(now)); % Р”Р°РЅРЅС‹Рµ
+                            else % РђРЅРіР»РёР№СЃРєРёР№
+                                LogStr = sprintf(['%s ', ... % Р¤РѕСЂРјР°С‚
+                                    'Calculations are ', ... % РўРµРєСЃС‚
+                                    'completed.\n'], datestr(now)); % Р”Р°РЅРЅС‹Рµ
+                            end
+                            for k = 1:2 % Р¦РёРєР» РїРѕ Р»РѕРіР°Рј
+                                obj.Log{k}{end+1} = LogStr; % Р”РѕР±Р°РІРёС‚СЊ
+                                obj.Log{k}{end+1} = newline; % РџСѓСЃС‚Р°СЏ СЃС‚СЂРѕРєР°
+                            end
+                        else % Р•СЃР»Рё С‚РѕС‡РєРё РµСЃС‚СЊ
+                            obj.h2dB = obj.Addh2dBs(1); % Р’Р·СЏС‚СЊ РїРµСЂРІСѓСЋ
+                            obj.Addh2dBs = obj.Addh2dBs(2:end); % РЈРґР°Р»РёС‚СЊ РёР· СЃРїРёСЃРєР°
+                        end
+                end
+            % РЎРѕС…СЂР°РЅРµРЅРёРµ СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ С‚РµРєСѓС‰РµР№ С‚РѕС‡РєРё
+                if isPointFinished && ~obj.isStop % Р•СЃР»Рё С‚РѕС‡РєР° Р·Р°РІРµСЂС€РµРЅР°
+                    obj.h2dBs       = [obj.h2dBs, obj.h2dB]; % Р”РѕР±Р°РІРёС‚СЊ h2
+                    obj.NumTrBits   = [obj.NumTrBits,   0]; % РЎР±СЂРѕСЃ Р±РёС‚
+                    obj.NumTrFrames = [obj.NumTrFrames, 0]; % РЎР±СЂРѕСЃ РєР°РґСЂРѕРІ
+                    obj.NumErBits   = [obj.NumErBits,   0]; % РЎР±СЂРѕСЃ РѕС€РёР±РѕРє
+                    obj.NumErFrames = [obj.NumErFrames, 0]; % РЎР±СЂРѕСЃ РєР°РґСЂРѕРІ СЃ РѕС€РёР±РєР°РјРё
+                    obj.ResetRandStreams(); % РЎР±СЂРѕСЃ РіРµРЅРµСЂР°С‚РѕСЂРѕРІ
+                end
+            % Р’С‹РІРѕРґ Р»РѕРіР°
+                for k = 1:2 % Р¦РёРєР» РїРѕ Р»РѕРіР°Рј
+                    obj.PrintLog(k, obj.isRealTimeLog(k)); % РџРµС‡Р°С‚СЊ
+                    if obj.isRealTimeLog(k) % Р•СЃР»Рё СЂРµР°Р»С‚Р°Р№Рј
+                        if isPointFinished && ~obj.isStop % Р•СЃР»Рё С‚РѕС‡РєР° Р·Р°РІРµСЂС€РµРЅР°
+                            obj.Log{k}{end+1} = ''; % РџСѓСЃС‚Р°СЏ СЃС‚СЂРѕРєР°
+                        end
+                    else % РРЅР°С‡Рµ
+                        obj.Log{k} = cell(0); % РћС‡РёСЃС‚РєР°
+                    end
+                end
+        end
+        function Saves(obj, Objs, Params) %#ok<INUSL> % РЎРѕС…СЂР°РЅРµРЅРёРµ СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ
+            Res.h2dBs       = obj.h2dBs; % РњР°СЃСЃРёРІ h2
+            Res.NumErBits   = obj.NumErBits; % РћС€РёР±РєРё
+            Res.NumTrBits   = obj.NumTrBits; % Р‘РёС‚С‹
+            Res.NumErFrames = obj.NumErFrames; % РљР°РґСЂС‹ СЃ РѕС€РёР±РєР°РјРё
+            Res.NumTrFrames = obj.NumTrFrames; % РљР°РґСЂС‹
+            save(obj.FullSaveFileName, 'Res', 'Params'); % РЎРѕС…СЂР°РЅРµРЅРёРµ РІ С„Р°Р№Р»
+        end
+        function StartParallel(obj) % Р—Р°РїСѓСЃРє РїР°СЂР°Р»Р»РµР»СЊРЅС‹С… РІС‹С‡РёСЃР»РµРЅРёР№
+            P = gcp('nocreate'); % РџСЂРѕРІРµСЂРєР° РїСѓР»Р°
+            isOk = false; % Р¤Р»Р°Рі РіРѕС‚РѕРІРЅРѕСЃС‚Рё
+                if ~isempty(P) % Р•СЃР»Рё РїСѓР» РµСЃС‚СЊ
+                    if P.Connected % Р•СЃР»Рё РїРѕРґРєР»СЋС‡РµРЅ
+                        if isequal(P.NumWorkers, obj.NumWorkers) % Р•СЃР»Рё С‡РёСЃР»Рѕ СЃРѕРІРїР°РґР°РµС‚
+                            isOk = true; % РЈСЃС‚Р°РЅРѕРІРёС‚СЊ С„Р»Р°Рі
+                        end
+                    end
+                else % Р•СЃР»Рё РїСѓР»Р° РЅРµС‚
+                    if isequal(obj.NumWorkers, 1) % Р•СЃР»Рё 1 РІРѕСЂРєРµСЂ
+                        isOk = true; % Р¤Р»Р°Рі РіРѕС‚РѕРІРЅРѕСЃС‚Рё
+                    end
+                end
+                if ~isOk % Р•СЃР»Рё РЅРµ РіРѕС‚РѕРІ
+                        if ~isempty(P) % Р•СЃР»Рё РїСѓР» РµСЃС‚СЊ
+                            delete(P); % РЈРґР°Р»РёС‚СЊ
+                        end
+                    if obj.NumWorkers > 1 % Р•СЃР»Рё РЅСѓР¶РЅРѕ Р±РѕР»СЊС€Рµ 1
+                            P = parpool(obj.NumWorkers); % РЎРѕР·РґР°С‚СЊ РїСѓР»
+                            isOk = false; % РЎР±СЂРѕСЃ С„Р»Р°РіР°
+                            if P.Connected % Р•СЃР»Рё РїРѕРґРєР»СЋС‡РµРЅ
+                                if isequal(P.NumWorkers, obj.NumWorkers) % Р•СЃР»Рё С‡РёСЃР»Рѕ СЃРѕРІРїР°РґР°РµС‚
+                                    isOk = true; % РЈСЃС‚Р°РЅРѕРІРёС‚СЊ С„Р»Р°Рі
+                                end
+                            end
+                            if ~isOk % Р•СЃР»Рё РЅРµ РіРѕС‚РѕРІ
+                                if strcmp(obj.LogLanguage, 'Russian') % Р•СЃР»Рё СЂСѓСЃСЃРєРёР№
+                                    error(['РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РїСѓСЃС‚РёС‚СЊ ', ... % РћС€РёР±РєР°
+                                        'pool СЃ Р·Р°РґР°РЅРЅС‹РјРё РїР°СЂР°РјРµС‚СЂР°РјРё']); % РўРµРєСЃС‚
+                                else % РђРЅРіР»РёР№СЃРєРёР№
+                                    error(['Failed to start the pool ', ... % РћС€РёР±РєР°
+                                        'with the specified parameters']); % РўРµРєСЃС‚
                                 end
                             end
                     end
                 end
-
         end
-        function StopParallel(obj) %#ok<MANU>
-        % Выход из параллельных вычислений (при необходимости)
-
-            % Определим параметры запущенного pool, если он есть
-                P = gcp('nocreate');
-
-            % Если имеется pool, то его нужно удалить
-                if ~isempty(P)
-                    delete(P);
+        function StopParallel(obj) %#ok<MANU> % РћСЃС‚Р°РЅРѕРІРєР° РїР°СЂР°Р»Р»РµР»СЊРЅС‹С… РІС‹С‡РёСЃР»РµРЅРёР№
+            P = gcp('nocreate'); % РџРѕР»СѓС‡РµРЅРёРµ РїСѓР»Р°
+                if ~isempty(P) % Р•СЃР»Рё РїСѓР» РµСЃС‚СЊ
+                    delete(P); % РЈРґР°Р»РёС‚СЊ
                 end
         end
-        function ResetRandStreams(obj)
-        % Функция сброса генераторов случайных чисел в начальное состояние
-            if obj.NumWorkers > 1
-                spmd
-                    Stream = RandStream.getGlobalStream;
-                    reset(Stream);
+        function ResetRandStreams(obj) % РЎР±СЂРѕСЃ РіРµРЅРµСЂР°С‚РѕСЂРѕРІ СЃР»СѓС‡Р°Р№РЅС‹С… С‡РёСЃРµР»
+            if obj.NumWorkers > 1 % Р•СЃР»Рё РїР°СЂР°Р»Р»РµР»СЊРЅРѕ
+                spmd % РџР°СЂР°Р»Р»РµР»СЊРЅРѕ
+                    Stream = RandStream.getGlobalStream; % РџРѕР»СѓС‡РёС‚СЊ РїРѕС‚РѕРє
+                    reset(Stream); % РЎР±СЂРѕСЃРёС‚СЊ
                 end
-            else
-                Stream = RandStream.getGlobalStream;
-                reset(Stream);
+            else % Р•СЃР»Рё РїРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅРѕ
+                Stream = RandStream.getGlobalStream; % РџРѕР»СѓС‡РёС‚СЊ РїРѕС‚РѕРє
+                reset(Stream); % РЎР±СЂРѕСЃРёС‚СЊ
             end
         end
-        function PrintLog(obj, LogNum, isClear)
-        % Вывод на экран/запись в файл лога номер LogNum, где LogNum = 1
-        % соответствует экрану, а LogNum = 2 - файлу. isClear - флаг
-        % необходимости очистки экрана/файла.
-            if isempty(obj.Log{LogNum})
-                return
+        function PrintLog(obj, LogNum, isClear) % РџРµС‡Р°С‚СЊ Р»РѕРіР°
+            if isempty(obj.Log{LogNum}) % Р•СЃР»Рё Р»РѕРі РїСѓСЃС‚
+                return % Р’С‹С…РѕРґ
             end
-            
-            if LogNum == 1 % Вывод лога на экран
-                if isClear
-                    clc;
+            if LogNum == 1 % Р•СЃР»Рё РѕРєРЅРѕ
+                if isClear % Р•СЃР»Рё РѕС‡РёС‰Р°С‚СЊ
+                    clc; % РћС‡РёСЃС‚РёС‚СЊ
                 end
-
-                for k = 1:length(obj.Log{1})
-                    fprintf('%s', obj.Log{1}{k});
+                for k = 1:length(obj.Log{1}) % Р¦РёРєР» РїРѕ СЃС‚СЂРѕРєР°Рј
+                    fprintf('%s', obj.Log{1}{k}); % РџРµС‡Р°С‚СЊ
                 end
-            elseif LogNum == 2 % Сохранение лога в файл
-                if isClear
-                    fileID = fopen(obj.FullLogFileName, 'w');
-                else
-                    fileID = fopen(obj.FullLogFileName, 'a');
+            elseif LogNum == 2 % Р•СЃР»Рё С„Р°Р№Р»
+                if isClear % Р•СЃР»Рё РѕС‡РёС‰Р°С‚СЊ
+                    fileID = fopen(obj.FullLogFileName, 'w'); % РћС‚РєСЂС‹С‚СЊ РЅР° Р·Р°РїРёСЃСЊ
+                else % РРЅР°С‡Рµ
+                    fileID = fopen(obj.FullLogFileName, 'a'); % РћС‚РєСЂС‹С‚СЊ РЅР° РґРѕРїРѕР»РЅРµРЅРёРµ
                 end
-
-                if fileID < 0
-                    if strcmp(obj.LogLanguage, 'Russian')
-                        error(['Не удалось открыть файл для ', ...
-                            'сохранения лога!']);
-                    else
-                        error('Failed to open file to save log!');
+                if fileID < 0 % Р•СЃР»Рё РѕС€РёР±РєР°
+                    if strcmp(obj.LogLanguage, 'Russian') % Р•СЃР»Рё СЂСѓСЃСЃРєРёР№
+                        error(['РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєСЂС‹С‚СЊ С„Р°Р№Р» РґР»СЏ ', ... % РћС€РёР±РєР°
+                            'СЃРѕС…СЂР°РЅРµРЅРёСЏ Р»РѕРіР°!']); % РўРµРєСЃС‚
+                    else % РђРЅРіР»РёР№СЃРєРёР№
+                        error('Failed to open file to save log!'); % РћС€РёР±РєР°
                     end
                 end
-
-                for k = 1:length(obj.Log{2})
-                    fprintf(fileID, '%s\r\n', obj.Log{2}{k}(1:end-1));
+                for k = 1:length(obj.Log{2}) % Р¦РёРєР» РїРѕ СЃС‚СЂРѕРєР°Рј
+                    fprintf(fileID, '%s\r\n', obj.Log{2}{k}(1:end-1)); % Р—Р°РїРёСЃСЊ
                 end
-
-                fclose(fileID);
+                fclose(fileID); % Р—Р°РєСЂС‹С‚СЊ С„Р°Р№Р»
             end
         end
-        function Out = Round(obj, In)
-        % Функция округления числа до заданного числа десятичных знаков
-        % после запятой
-            Out = round(10^obj.h2Precision*In) / 10^obj.h2Precision;
+        function Out = Round(obj, In) % РћРєСЂСѓРіР»РµРЅРёРµ
+            Out = round(10^obj.h2Precision*In) / 10^obj.h2Precision; % Р¤РѕСЂРјСѓР»Р°
         end
     end
 end
