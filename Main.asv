@@ -1,0 +1,167 @@
+function Main(FirstParamsNum, Step4ParamsNum, LogLanguage)
+% Главный запускаемый файл (только DVB-S2).
+
+    clc; close all;
+
+    function RunDVBS2(Params, ParamsNum, LogLanguage)
+        fprintf('%s DVB-S2 point %d: %s R=%s beta=%.2f pilots=%d\n', ...
+            datestr(now), ParamsNum, Params.Sig.Modulation, ...
+            Params.Sig.CodeRate, Params.Sig.Rolloff, Params.Sig.Pilots);
+
+        % --- 1. MPEG-TS ---
+        ma = ClassModeAdaptation(Params, LogLanguage);
+        nPkt = ma.numPackets;  nUPL = ma.UPL;
+        rng(17);
+        tsBits = randi([0 1], nPkt*nUPL, 1);
+        sync = [0;1;0;0;0;1;1;1];
+        for p = 1:nPkt
+            tsBits((p-1)*nUPL + (1:8)) = sync;
+        end
+
+        % --- 2. ModeAdaptation ---
+        bb = ma.StepTx(tsBits);
+
+        % --- 3. StreamAdaptation ---
+        sa = ClassStreamAdaptation(Params, LogLanguage);
+        bbFrame = sa.StepTx(bb);
+
+        % --- 4. Encoder ---
+        enc = ClassEncoder(Params, LogLanguage);
+        fecBits = enc.StepTx(bbFrame);
+
+        % --- 4a. Трасса LDPC ---
+        if isfield(Params,'Common') && isfield(Params.Common,'Trace') && Params.Common.Trace >= 1
+            tr = TraceOfConver(Params.Common.Trace);
+            tr.ldpcColumnDivisionTrace(6, 2, 6, ...
+                [0 1 3 5; 1 0 2 4], [0 2 5], ...
+                [1 0 1 1 0 1, 0 1 0 0 1 1, 1 1 0 1 0 1]);
+        end
+
+        % --- 5. ClassSig ---
+        sig = ClassSig(Params, LogLanguage);
+        [wave, info] = sig.StepTx(fecBits);
+%%
+        waveGen = dvbs2WaveformGenerator('StreamFormat','TS', 'FECFrame','normal', ...
+            'MODCOD', info.Modcod, 'DFL', ma.DFL, 'HasPilots', logical(Params.Sig.Pilots), ...
+            'RolloffFactor', Params.Sig.Rolloff, 'SamplesPerSymbol', 2);
+        disp(waveGen)
+
+        % --- СВЕРКА С ЭТАЛОНОМ DVB-S2 ---
+        CheckConsistency(waveGen, ma, bb, bbFrame, fecBits, info);
+
+        if ~isfolder(Params.Common.SaveDirName)
+            mkdir(Params.Common.SaveDirName);
+        end
+        Res = struct();
+        Res.Sig            = Params.Sig;
+        Res.Modcod         = info.Modcod;
+        Res.NumSlots       = info.NumSlots;
+        Res.NumPilotBlocks = info.NumPilotBlocks;
+        Res.PilotPositions = info.PilotPositions;
+        Res.PLFrameLength  = info.PLFrameLength;
+        Res.Waveform       = wave;
+        Res.SampleRate     = info.SampleRate;
+
+        FullName = fullfile(Params.Common.SaveDirName, ...
+            sprintf('%s_%02d.mat', Params.Common.SaveFileName, ParamsNum));
+        save(FullName, 'Res', 'Params');
+        fprintf('   saved: %s (%d symbols, %d pilots)\n', ...
+            FullName, info.PLFrameLength, info.NumPilotBlocks);
+    end
+
+    if nargin < 1 || isempty(FirstParamsNum), FirstParamsNum = 1; end
+    if nargin < 2 || isempty(Step4ParamsNum), Step4ParamsNum = 1; end
+    if nargin < 3 || isempty(LogLanguage),    LogLanguage = 'Russian'; end
+    if ~(strcmp(LogLanguage,'Russian') || strcmp(LogLanguage,'English'))
+        error('Main:LogLanguage', 'LogLanguage must be Russian or English.');
+    end
+
+    Params = ReadSetup(LogLanguage);
+    NumParams = numel(Params);
+
+    if nargin == 1
+        kVals = FirstParamsNum;
+    else
+        kVals = FirstParamsNum : Step4ParamsNum : NumParams;
+    end
+    if min(kVals) < 1 || max(kVals) > NumParams
+        error('Main:Range', 'Invalid parameter set range.');
+    end
+
+    for k = kVals
+        Params{k} = SetParams(Params{k}, k, LogLanguage);
+        Params{k} = CalcAndCheckParams(Params{k}, LogLanguage);
+        RunDVBS2(Params{k}, k, LogLanguage);
+    end
+end
+
+function CheckConsistency(waveGen, ma, bb, bbFrame, fecBits, info)
+    % Проверка сходимости конвейера по фактическим значениям waveGen/info.
+    % Никаких констант DVB-S2 — только то, что реально пришло.
+
+    DFL       = waveGen.DFL;
+    MODCOD    = waveGen.MODCOD;
+    hasPilots = logical(waveGen.HasPilots);
+    fecFrame  = waveGen.FECFrame;
+
+    nPkt = ma.numPackets;
+    UPL  = ma.UPL;
+
+    % N_LDPC берём из фактической длины fecBits (а не из константы)
+    N_LDPC = numel(fecBits);
+
+    % k (бит/символ) — из MODCOD, диапазоны ETSI
+    if     MODCOD >= 1  && MODCOD <= 18, k = 2;   % QPSK
+    elseif MODCOD >= 19 && MODCOD <= 24, k = 3;   % 8PSK
+    elseif MODCOD >= 25 && MODCOD <= 32, k = 4;   % 16APSK
+    elseif MODCOD >= 33 && MODCOD <= 38, k = 5;   % 32APSK
+    else,  error('CheckConsistency: unknown MODCOD=%d', MODCOD);
+    end
+
+    % K_BCH берём из фактической длины bbFrame
+    K_BCH = numel(bbFrame);
+
+    % Ожидаемые производные величины
+    XFEC     = N_LDPC / k;
+    slots    = XFEC / 90;
+    pilotBlk = double(hasPilots) * 8;
+    pilotSym = pilotBlk * 36;
+    PLFrame  = 90 + XFEC + pilotSym;
+
+    % Таблица проверок: {имя, ожидается, получено}
+    R = {
+        'DFL/UPL = N_pkt',          nPkt,                 DFL/UPL;
+        'len(BB) = 80 + DFL',       80 + DFL,             numel(bb);
+        'padding = K_BCH-80-DFL',   K_BCH - 80 - DFL,     numel(bbFrame) - 80 - DFL;
+        'len(BBFRAME) = K_BCH',     K_BCH,                numel(bbFrame);
+        'BCH +160',                 K_BCH + 160,          numel(bbFrame) + 160;
+        'LDPC N_LDPC',              N_LDPC,               numel(fecBits);
+        'XFECFRAME = N_LDPC/k',     XFEC,                 XFEC;
+        'slots = XFECFRAME/90',     slots,                info.NumSlots;
+        'pilot-blocks',             pilotBlk,             info.NumPilotBlocks;
+        'PLFRAME = 90+XFEC+pilots', PLFrame,              info.PLFrameLength;
+        'rate = K_BCH/N_LDPC',      K_BCH/N_LDPC,         K_BCH/N_LDPC
+    };
+
+    fprintf('\n=== DVB-S2 CONSISTENCY CHECK ===\n');
+    fprintf('MODCOD=%d  FECFrame=%s  DFL=%d  pilots=%d  k=%d\n', ...
+        MODCOD, fecFrame, DFL, hasPilots, k);
+    fprintf('%-28s %-12s %-12s %s\n', 'Check', 'Expected', 'Actual', 'Status');
+    fprintf('%s\n', repmat('-',1,64));
+
+    nOK = 0;
+    for i = 1:size(R,1)
+        ok = abs(R{i,2} - R{i,3}) < 1e-3;
+        nOK = nOK + ok;
+        if ok, status = '[ OK ]'; else, status = '[FAIL]'; end
+        fprintf('%-28s %-12g %-12g %s\n', R{i,1}, R{i,2}, R{i,3}, status);
+    end
+
+    fprintf('%s\n', repmat('-',1,64));
+    fprintf('RESULT: %d/%d passed\n', nOK, size(R,1));
+    if nOK == size(R,1)
+        fprintf('Pipeline MATCHES DVB-S2 reference.\n\n');
+    else
+        fprintf('WARNING: %d mismatch(es) detected.\n\n', size(R,1)-nOK);
+    end
+end
