@@ -25,7 +25,7 @@ function Main(FirstParamsNum, Step4ParamsNum, LogLanguage)
         sa = ClassStreamAdaptation(Params, LogLanguage);
         bbFrame = sa.StepTx(bb);                        
     
-               % --- 4. Encoder (BCH + LDPC) ---
+        % --- 4. Encoder (BCH + LDPC) ---
         enc = ClassEncoder(Params, LogLanguage);
         fecBits = enc.StepTx(bbFrame);
 

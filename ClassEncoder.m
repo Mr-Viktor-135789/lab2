@@ -89,49 +89,34 @@ classdef ClassEncoder < handle
 
 %% LDPC begin
         function OutData = encodeLDPC(obj, InData)
-            u = mod(double(InData(:).'), 2);
-            if numel(u) > obj.K
-                error('Слишком много входных бит: %d > K=%d', numel(u), obj.K);
+
+            persistent H A B
+            if isempty(H)
+                H = dvbs2ldpc(5/6);        % 10800 x 64800
+                A = H(:, 1:54000);         % 10800 x 54000
+                B = H(:, 54001:end);       % 10800 x 10800
             end
-
-            u = [u, zeros(1, obj.K - numel(u))];
-            acc = zeros(1, obj.M);
-
-            numRows1 = size(obj.ct1, 1);
-            numRows2 = size(obj.ct2, 1);
-            numRows  = numRows1 + numRows2;
-            
-            for g = 0:numRows-1
-                if g < numRows1
-                    addrs = obj.ct1(g+1, 2:end);
-                else
-                    addrs = obj.ct2(g - numRows1 + 1, 2:end);
-                end
-                base = g * obj.NB;
-            
-                for i = 0:obj.NB-1
-                    if u(base + i + 1)
-                        for a = addrs
-                            pos = mod(a + i*obj.Q, obj.M) + 1;
-                            acc(pos) = xor(acc(pos), 1);
-                        end
-                    end
-
-                end
+        
+            u = mod(double(InData(:)), 2);
+            if numel(u) > 54000
+                error('Слишком много входных бит: %d > K=54000', numel(u));
             end
+            u = [u; zeros(54000 - numel(u), 1)];
 
-            p = zeros(1, obj.M);
+            acc = mod(A * u, 2);           % 10800 x 1
+            
+            p = zeros(10800, 1);
             p(1) = acc(1);
-            for i = 2 : obj.M
+            for i = 2:10800
                 p(i) = xor(acc(i), p(i-1));
             end
-
-            OutData = [u, p];
+        
+            OutData = [u; p].';
         end
-    
         function loadLDPCtables(obj)
-            obj.ct1 = DataForBchLdpc.LDPC_R56_CT1;
-            obj.ct2 = DataForBchLdpc.LDPC_R56_CT2;
+            S = load('LDPC_R56_CT.mat');
+            obj.ct1 = S.ct1;
+            obj.ct2 = S.ct2;
         end
 %% LDPC end
 
