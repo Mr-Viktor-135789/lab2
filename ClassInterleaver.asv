@@ -1,0 +1,105 @@
+classdef ClassInterleaver < handle
+    properties (SetAccess = private) % Переменные из параметров
+        % Нужно ли выполнять перемежение и деперемежение
+            isTransparent;
+            TraceObj;
+        % Переменная управления языком вывода информации для пользователя
+            LogLanguage;
+    end
+    properties (SetAccess = private) % Вычисляемые переменные
+        C;        % число столбцов = log2M
+        R;        % число строк
+        log2M;
+    end
+    methods
+        function obj = ClassInterleaver(Params, LogLanguage) % Конструктор
+            % Выделим поля Params, необходимые для инициализации
+                Interleaver  = Params.Interleaver;
+            % Инициализация значений переменных из параметров
+                obj.isTransparent = Interleaver.isTransparent;
+            % Переменная LogLanguage
+                obj.LogLanguage = LogLanguage;
+
+            % log2M из модуляции
+                if isfield(Params,'Sig') && isfield(Params.Sig,'Modulation')
+                    switch upper(Params.Sig.Modulation)
+                        case 'QPSK',   obj.log2M = 2;
+                        case '8PSK',   obj.log2M = 3;
+                        case '16APSK', obj.log2M = 4;
+                        case '32APSK', obj.log2M = 5;
+                        otherwise
+                            error('Interleaver: неизвестная модуляция %s', ...
+                                Params.Sig.Modulation);
+                    end
+                else
+                    obj.log2M = 5;   % по умолчанию — 32APSK
+                end
+                obj.C = obj.log2M;
+
+            % Trace
+                if isfield(Params,'Common') && isfield(Params.Common,'Trace')
+                    obj.TraceObj = TraceOfConver(Params.Common.Trace);
+                else
+                    obj.TraceObj = TraceOfConver(0);
+                end
+        end
+
+        function OutData = StepTx(obj, InData)
+            if obj.isTransparent
+                OutData = InData;
+                return
+            end
+
+            C = obj.C;
+            n = numel(InData);
+            if mod(n, C) ~= 0
+                error('Interleaver: длина %d не кратна C=%d', n, C);
+            end
+            R = n / C;
+            obj.R = R;
+
+            % out(i) = in( ((i-1) mod C)*R + floor((i-1)/C) + 1 )
+                idx = mod((0:n-1), C)*R + floor((0:n-1)/C) + 1;
+                OutData = InData(idx);
+
+            % --- Trace ---
+            if obj.TraceObj.Level >= 1
+                fprintf('[  8] Перемежитель: %d бит, C=%d, R=%d → %d символов (log2M=%d)\n', ...
+                    n, C, R, R, obj.log2M);
+                obj.TraceObj.checkTrace(sprintf('длина %d → %d', n, numel(OutData)), ...
+                    numel(OutData)==n);
+                obj.TraceObj.checkTrace('мультимножество', ...
+                    isequal(sort(InData(:)), sort(OutData(:))));
+                obj.TraceObj.checkTrace('обратимость', ...
+                    isequal(obj.StepRx(OutData), InData(:).'));
+                fprintf('       шаг = R = %d; %d бит out = r1 всех %d столбцов\n', ...
+                    R, C, C);
+            end
+
+            if obj.TraceObj.Level >= 2 && n <= 64
+                mat = reshape(InData(:), C, R).';
+                names = arrayfun(@(k) sprintf('r%d',k), 1:R, 'Uni', 0);
+                obj.TraceObj.matrixTrace(names, mat);
+                fprintf('  out:\n    %s\n', num2str(OutData));
+                fprintf('  i  out[i]  idx  in[idx]\n');
+                for i = 1:min(n, 12)
+                    fprintf('  %2d   %d      %2d    %d\n', ...
+                        i, OutData(i), idx(i), InData(idx(i)));
+                end
+            end
+        end
+
+        function OutData = StepRx(obj, InData)
+            if obj.isTransparent
+                OutData = InData;
+                return
+            end
+            n = numel(InData);
+            C = obj.C;
+            R = n / C;
+            idx = mod((0:n-1), C)*R + floor((0:n-1)/C) + 1;
+            OutData = zeros(1, n);
+            OutData(idx) = InData;
+        end
+    end
+end

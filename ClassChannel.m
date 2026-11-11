@@ -1,57 +1,59 @@
 classdef ClassChannel < handle
-    properties (SetAccess = private) % Переменные из параметров
-        % Нужно ли пропускать сигнал через канал
-            isTransparent;
-        % Переменная управления языком вывода информации для пользователя
-            LogLanguage;
+    properties (SetAccess = private)
+        isTransparent;
+        LogLanguage;
     end
-    properties (SetAccess = private) % Вычисляемые переменные
-        % Значение средней мощности модуляционного символа
-            Ps;
-        % Значение средней мощности модуляционного бита
-            Pb;
-        % Значение средней мощности информационного бита
-            Pbd;
+    properties (SetAccess = private)
+        Ps;    % средняя мощность символа
+        Pb;    % мощность на модуляционный бит
+        Pbd;   % мощность на информационный бит (с учётом скорости кода)
+        Rate;  % скорость LDPC (5/6)
     end
     methods
         function obj = ClassChannel(Params, Objs, LogLanguage)
-        % Конструктор
-            % Выделим поля Params, необходимые для инициализации
-                Channel = Params.Channel;
-            % Инициализация значений переменных из параметров
-                obj.isTransparent = Channel.isTransparent;
-            % Переменная LogLanguage
-                obj.LogLanguage = LogLanguage;
+            Channel = Params.Channel;
+            obj.isTransparent = Channel.isTransparent;
+            obj.LogLanguage = LogLanguage;
 
-            % Определим среднюю мощность модуляционного символа
-                Const = Objs.Mapper.Constellation;
-                obj.Ps = mean((abs(Const)).^2);
+            Const = Objs.Mapper.Constellation;
+            obj.Ps = mean(abs(Const).^2);
+            obj.Pb = obj.Ps / Objs.Mapper.log2M;
 
-            % Определим среднюю мощность модуляционного бита
-                obj.Pb = obj.Ps / Objs.Mapper.log2M;
+            % Скорость кода: из Encoder или из Setup (5/6)
+            if isfield(Params, 'Encoder') && isfield(Params.Encoder, 'CodeRate')
+                r = Params.Encoder.CodeRate;
+                if ischar(r)
+                    parts = strsplit(r, '/');
+                    obj.Rate = str2double(parts{1}) / str2double(parts{2});
+                else
+                    obj.Rate = r;
+                end
+            else
+                obj.Rate = 5/6;
+            end
 
-            % Определим среднюю мощность информационного бита (энергия,
-            % приходящаяся на информационный бит, оказывается больше, так
-            % как используются проверочные биты)
-                obj.Pbd = obj.Pb;
-                % Когда и если будет реализован класс кодирования, то здесь
-                % должно будет быть
-                % obj.Pbd = obj.Pb / Objs.Encoder.Rate;
+            % Энергия на информационный бит: Es / (log2M * Rate)
+            obj.Pbd = obj.Pb / obj.Rate;
         end
+
         function [OutData, InstChannelParams] = Step(obj, InData, h2dB)
-            if obj.isTransparent
+        %STEP Добавляет комплексный АБГШ.
+        %   h2dB — отношение Eb/N0 по информационным битам (дБ).
+            if obj.isTransparent || isinf(h2dB)
                 OutData = InData;
-                InstChannelParams.Variance = 1;
+                InstChannelParams.Variance = 0;
+                InstChannelParams.Sigma = 0;
                 return
             end
 
-            % Сформируем АБГШ
-                Sigma = sqrt(obj.Pbd * 10^(-h2dB/10) / 2);
-                InstChannelParams.Variance = 2*Sigma^2;
-                Noise = randn(length(InData), 2) * [1; 1i] * Sigma;
+            % Дисперсия комплексного шума: N0 = Pbd * 10^(-h2dB/10)
+            N0 = obj.Pbd * 10^(-h2dB/10);
+            Sigma = sqrt(N0 / 2);   % на каждую квадратуру
+            InstChannelParams.Variance = N0;   % E|n|^2 = 2*Sigma^2 = N0
+            InstChannelParams.Sigma = Sigma;
 
-            % Добавим его к сигналу
-                OutData = InData + Noise;
+            Noise = Sigma * (randn(size(InData)) + 1i*randn(size(InData)));
+            OutData = InData + Noise;
         end
     end
 end

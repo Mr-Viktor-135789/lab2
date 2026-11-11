@@ -12,7 +12,7 @@ function Main
     cd(projectFolder);
 
     fprintf('Лабораторная работа DVB-S2 | задача 1 | команда 8\n');
-    fprintf('32APSK | LDPC 5/6 | beta = 0,20 | пилоты включены | канал без шума\n\n');
+    fprintf('32APSK | LDPC 5/6 | beta = 0,20 | пилоты включены\n\n');
 
     % Считываем настройки и применяем штатные функции исходной модели.
     parameterSets = ReadSetup('Russian');
@@ -22,7 +22,11 @@ function Main
     Params = SetParams(parameterSets{1}, 1, 'Russian');
     Params = CalcAndCheckParams(Params, 'Russian');
 
-    % Создаём предусмотренные моделью объекты передатчика и приёмника.
+    % ============================================================
+    %  ЧАСТЬ 1. Проверка тракта в канале БЕЗ ШУМА (как было)
+    % ============================================================
+    fprintf('--- ЧАСТЬ 1: канал без шума (проверка тракта) ---\n');
+
     Objs.Source = ClassSource(Params, 'Russian');
     Objs.Encoder = ClassEncoder(Params, 'Russian');
     Objs.Interleaver = ClassInterleaver(Params, 'Russian');
@@ -38,7 +42,7 @@ function Main
     Frame.TxModSymbols = Objs.Mapper.StepTx(Frame.TxIntData);
     Frame.TxSignal = Objs.Sig.StepTx(Frame.TxModSymbols);
 
-    % --------------------------- КАНАЛ ----------------------------
+    % --------------------------- КАНАЛ (без шума) -----------------
     [Frame.RxSignal, InstChannelParams] = Objs.Channel.Step(Frame.TxSignal, inf);
 
     % ------------------------- ПРИЁМНИК ---------------------------
@@ -47,7 +51,6 @@ function Main
     Frame.RxEncData = Objs.Interleaver.StepRx(Frame.RxIntData);
     Frame.RxData = Objs.Encoder.StepRx(Frame.RxEncData);
 
-    % Считаем статистику в штатном объекте модели.
     Objs.Stat.Step(Frame);
     stats = struct();
     stats.Team = 8;
@@ -70,14 +73,13 @@ function Main
     stats.PLHeaderMaxError = Objs.Sig.LastHeaderError;
     stats.PilotMaxError = Objs.Sig.LastPilotError;
 
-    % Проверяем основное условие задачи: полное восстановление без шума.
     if ~isequal(Frame.TxData, Frame.RxData) || stats.DemapperBitErrors ~= 0 || ...
             stats.BitErrors ~= 0 || stats.ByteErrors ~= 0 || stats.PacketErrors ~= 0 || ...
             ~stats.BBHeaderCRC || ~stats.BCHCheck || ~stats.LDPCCheck || ~stats.PacketCRC
         error('Проверка не пройдена: переданные и восстановленные пакеты отличаются.');
     end
 
-    % Сохраняем результаты рядом с моделью.
+    % Сохраняем результаты части 1.
     outFolder = fullfile(projectFolder, 'Results_Task1_Team8');
     if ~exist(outFolder, 'dir'), mkdir(outFolder); end
     txPackets = Frame.TxData;
@@ -90,7 +92,7 @@ function Main
         'rxSymbols', 'constellation');
     writeReport(fullfile(outFolder, 'Отчет_задача1.txt'), stats);
 
-    % График 32APSK.
+    % Графики части 1.
     figure('Name', 'Созвездие 32APSK', 'Color', 'w');
     plot(real(constellation), imag(constellation), 'o', 'LineWidth', 1.2, ...
         'MarkerSize', 7);
@@ -99,7 +101,6 @@ function Main
     ylabel('Квадратурная составляющая Q');
     title('Сигнальное созвездие DVB-S2 32APSK, скорость LDPC 5/6');
 
-    % График огибающей сформированного сигнала.
     figure('Name', 'Сигнал после фильтра RRC', 'Color', 'w');
     count = min(2000, numel(txSignal));
     plot(0:count-1, abs(txSignal(1:count)), 'LineWidth', 1);
@@ -108,7 +109,6 @@ function Main
     ylabel('Амплитуда');
     title('Огибающая сигнала после фильтра RRC');
 
-    % Сравнение принятых символов с идеальным созвездием.
     figure('Name', 'Принятые символы', 'Color', 'w');
     count = min(5000, numel(rxSymbols));
     plot(real(rxSymbols(1:count)), imag(rxSymbols(1:count)), '.');
@@ -131,10 +131,53 @@ function Main
         passFail(stats.LDPCCheck), passFail(stats.PacketCRC));
     fprintf('Проверка PLHEADER: %.6g | пилотов: %.6g\n', ...
         stats.PLHeaderMaxError, stats.PilotMaxError);
-    fprintf('\nВсе пакеты восстановлены без ошибок.\n');
-    fprintf('Результаты сохранены в папке Results_Task1_Team8.\n');
+    fprintf('Все пакеты восстановлены без ошибок.\n\n');
+
+    % ============================================================
+    %  ЧАСТЬ 2. Кривая PER/FER в канале с АБГШ
+    % ============================================================
+    fprintf('--- ЧАСТЬ 2: канал AWGN, кривая PER/FER ---\n');
+
+    % Копируем Params и включаем канал с шумом.
+    ParamsAWGN = Params;
+    ParamsAWGN.Channel.isTransparent = false;
+    ParamsAWGN.Channel.Type = 'AWGN';
+
+    % Диапазон Eb/N0 для 32APSK 5/6: 9...15 дБ (настройте под себя).
+    ParamsAWGN.BER.h2dBInit     = 14.0;
+    ParamsAWGN.BER.h2dBInitStep = 0.1;
+    ParamsAWGN.BER.h2dBMax      = 15.0;
+    ParamsAWGN.BER.MinNumErFrames = 500;      % цель по кадрам
+    ParamsAWGN.BER.MaxNumTrFrames = 3000;    % потолок кадров на точку
+
+    % Запуск измерителя PER.
+    ruler = ClassPERRuler(ParamsAWGN, 'Russian');
+    ruler.Run(ParamsAWGN, 'Russian');
+
+    % Сохраняем кривые.
+    save(fullfile(outFolder, 'PER_curve.mat'), ...
+        'ParamsAWGN', 'ruler');
+
+    % График PER/FER.
+    figure('Name', 'PER/FER vs Eb/N0', 'Color', 'w');
+    semilogy(ruler.h2dBs, ruler.PER, 'bo-', 'LineWidth', 1.5, ...
+        'MarkerSize', 6); hold on;
+    semilogy(ruler.h2dBs, ruler.FER, 'rs-', 'LineWidth', 1.5, ...
+        'MarkerSize', 6);
+    grid on;
+    set(gca, 'YScale', 'log');
+    xlabel('E_b/N_0 (dB)');
+    ylabel('Вероятность ошибки');
+    legend('PER (по пакетам MPEG-TS)', 'FER (по кадрам)', ...
+        'Location', 'southwest');
+    title('DVB-S2 32APSK LDPC 5/6, канал AWGN');
+
+    fprintf('\nГотово. Результаты в папке %s\n', outFolder);
 end
 
+% ================================================================
+%  Вспомогательные функции отчёта
+% ================================================================
 function writeReport(fileName, stats)
     fid = fopen(fileName, 'w', 'n', 'UTF-8');
     if fid < 0, error('Не удалось создать текстовый отчёт.'); end
