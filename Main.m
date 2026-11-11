@@ -8,7 +8,7 @@ function Main
     if isempty(projectFolder), projectFolder = pwd; end
     addpath(projectFolder);
     previousFolder = pwd;
-    folderGuard = onCleanup(@() cd(previousFolder)); %#ok<NASGU>
+    folderGuard = onCleanup(@() cd(previousFolder));
     cd(projectFolder);
 
     fprintf('Лабораторная работа DVB-S2 | задача 1 | команда 8\n');
@@ -138,7 +138,7 @@ end
 function writeReport(fileName, stats)
     fid = fopen(fileName, 'w', 'n', 'UTF-8');
     if fid < 0, error('Не удалось создать текстовый отчёт.'); end
-    guard = onCleanup(@() fclose(fid)); %#ok<NASGU>
+    guard = onCleanup(@() fclose(fid));
     fprintf(fid, 'Лабораторная работа: приём сигналов DVB-S2 в канале с АБГШ\n');
     fprintf(fid, 'Задача 1. Команда 8.\n\n');
     fprintf(fid, 'Модуляция: %s\n', stats.Modulation);
