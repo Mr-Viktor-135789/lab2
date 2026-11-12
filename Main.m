@@ -3,11 +3,14 @@ function Main
     close all;
     rng(8, 'twister');
 
-    runPart1  = 1;
-    recalcPER = 0;
+    %%  ФЛАГИ УПРАВЛЕНИЯ РАСЧЁТОМ
+    runPart1  = 1;   % 1 — выполнить проверку тракта в канале без шума
+    recalcPER = 0;   % 1 — пересчитать кривую PER, 0 — загрузить сохранённую
 
+    %% Загрузка и поиск файлов
     perFileName = 'PER_curve.mat';
 
+    % Переходим в папку проекта, чтобы ReadSetup нашла файл Setup.m.
     projectFolder = fileparts(mfilename('fullpath'));
     if isempty(projectFolder), projectFolder = pwd; end
     addpath(projectFolder);
@@ -18,6 +21,7 @@ function Main
     fprintf('Лабораторная работа DVB-S2 | задача 1 | команда 8\n');
     fprintf('32APSK | LDPC 5/6 | beta = 0,20 | пилоты включены\n\n');
 
+    % Считываем настройки и применяем штатные функции исходной модели.
     parameterSets = ReadSetup('Russian');
     if numel(parameterSets) ~= 1
         error('Для этой лабораторной должен быть задан ровно один набор параметров в Setup.m.');
@@ -32,6 +36,7 @@ function Main
     if runPart1
         fprintf('--- ЧАСТЬ 1: канал без шума (проверка тракта) ---\n');
 
+        % Создаём предусмотренные моделью объекты передатчика и приёмника.
         Objs.Source      = ClassSource(Params, 'Russian');
         Objs.Encoder     = ClassEncoder(Params, 'Russian');
         Objs.Interleaver = ClassInterleaver(Params, 'Russian');
@@ -40,9 +45,23 @@ function Main
         Objs.Channel     = ClassChannel(Params, Objs, 'Russian');
         Objs.Stat        = ClassStat('Russian');
 
-        % Один и тот же прогон кадра, что и в ClassPERRuler.
-        [Frame, InstChannelParams] = ClassFrameRunner.Run(Objs, inf);
+        % ------------------------- ПЕРЕДАТЧИК -------------------------
+        Frame.TxData       = Objs.Source.Step();
+        Frame.TxEncData    = Objs.Encoder.StepTx(Frame.TxData);
+        Frame.TxIntData    = Objs.Interleaver.StepTx(Frame.TxEncData);
+        Frame.TxModSymbols = Objs.Mapper.StepTx(Frame.TxIntData);
+        Frame.TxSignal     = Objs.Sig.StepTx(Frame.TxModSymbols);
 
+        % --------------------------- КАНАЛ ----------------------------
+        [Frame.RxSignal, InstChannelParams] = Objs.Channel.Step(Frame.TxSignal, inf);
+
+        % ------------------------- ПРИЁМНИК ---------------------------
+        Frame.RxModSymbols = Objs.Sig.StepRx(Frame.RxSignal);
+        Frame.RxIntData    = Objs.Mapper.StepRx(Frame.RxModSymbols, InstChannelParams);
+        Frame.RxEncData    = Objs.Interleaver.StepRx(Frame.RxIntData);
+        Frame.RxData       = Objs.Encoder.StepRx(Frame.RxEncData);
+
+        % Считаем статистику в штатном объекте модели.
         Objs.Stat.Step(Frame);
         stats = struct();
         stats.Team               = 8;
@@ -65,12 +84,14 @@ function Main
         stats.PLHeaderMaxError   = Objs.Sig.LastHeaderError;
         stats.PilotMaxError      = Objs.Sig.LastPilotError;
 
+        % Проверяем основное условие задачи: полное восстановление без шума.
         if ~isequal(Frame.TxData, Frame.RxData) || stats.DemapperBitErrors ~= 0 || ...
                 stats.BitErrors ~= 0 || stats.ByteErrors ~= 0 || stats.PacketErrors ~= 0 || ...
                 ~stats.BBHeaderCRC || ~stats.BCHCheck || ~stats.LDPCCheck || ~stats.PacketCRC
             error('Проверка не пройдена: переданные и восстановленные пакеты отличаются.');
         end
 
+        % Сохраняем результаты рядом с моделью.
         txPackets     = Frame.TxData;
         rxPackets     = Frame.RxData;
         txSignal      = Frame.TxSignal;
@@ -81,6 +102,9 @@ function Main
             'rxSymbols', 'constellation');
         writeReport(fullfile(outFolder, 'Отчет_задача1.txt'), stats);
 
+        
+
+        % Сравнение принятых символов с идеальным созвездием.
         figure('Name', 'Принятые символы', 'Color', 'w');
         count = min(5000, numel(rxSymbols));
         plot(real(rxSymbols(1:count)), imag(rxSymbols(1:count)), '.');
@@ -110,6 +134,7 @@ function Main
 
     %%  ЧАСТЬ 2: Кривая PER в канале с АБГШ
     perFileFull = fullfile(outFolder, perFileName);
+    ruler = [];
 
     if recalcPER
         fprintf('--- ЧАСТЬ 2: канал AWGN, кривая PER (пересчёт) ---\n');
@@ -137,11 +162,28 @@ function Main
         fprintf('Загружено точек: %d (из %s)\n', numel(ruler.h2dBs), perFileFull);
     end
 
-    ruler.Plot();
+    figure('Name', 'PER vs Eb/N0', 'Color', 'w');
+    semilogy(ruler.h2dBs, ruler.PER, 'bo-', 'LineWidth', 1.5, 'MarkerSize', 6);
+    grid on;
+    set(gca, 'YScale', 'log');
+    xlim([0, 15]);
+    ylim([1e-8, 1]);
+    xlabel('E_b/N_0 (dB)');
+    ylabel('PER (по пакетам MPEG-TS)');
+    title('DVB-S2 32APSK LDPC 5/6, канал AWGN');
+    hold on;
+    x56 = [14.18, 14.24, 14.27, 14.28, 14.30, 14.33];
+    y56 = [1e-01, 5e-03, 1e-03, 1e-04, 1e-05, 1.5e-06];
+    semilogy(x56, y56, 'ks-', 'LineWidth', 1.5, 'MarkerSize', 6, ...
+        'MarkerFaceColor', 'k');
+    text(x56(1), y56(1)*1.5, '5/6', 'HorizontalAlignment', 'center', ...
+        'BackgroundColor', 'yellow', 'FontWeight', 'bold');
+    hold off;
 
     fprintf('\nГотово. Результаты в папке %s\n', outFolder);
 end
 
+%%  Вспомогательные функции отчёта
 function writeReport(fileName, stats)
     fid = fopen(fileName, 'w', 'n', 'UTF-8');
     if fid < 0, error('Не удалось создать текстовый отчёт.'); end
@@ -170,6 +212,7 @@ function value = passFail(condition)
     if condition, value = 'ПРОЙДЕНО'; else, value = 'ОШИБКА'; end
 end
 
+%% Сохранение результатов расчёта PER
 function savePERResults(fileName, ParamsAWGN, ruler)
     h2dBs   = ruler.h2dBs;
     PER     = ruler.PER;
