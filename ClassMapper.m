@@ -64,6 +64,40 @@ classdef ClassMapper < handle
                 OutData(k:5:end) = uint8(bitget(values, 6 - k));
             end
         end
+
+        function llrOut = StepRxLLR(obj, rxSymbols, N0)
+            % Max-log LLR для 32APSK
+            sym = rxSymbols(:);
+            numSym = length(sym);
+            llrOut = zeros(5 * numSym, 1);
+            
+            for k = 1:numSym
+                r = sym(k);
+                
+                % Считаем расстояния до всех 32 точек
+                d2 = zeros(32, 1);
+                for i = 1:32
+                    d2(i) = abs(r - obj.Constellation(i))^2;
+                end
+                
+                % Для каждого из 5 бит
+                for b = 1:5
+                    d0 = inf; % Ближайшая точка, где бит = 0
+                    d1 = inf; % Ближайшая точка, где бит = 1
+                    
+                    for i = 1:32
+                        if obj.Bits(b, i) == 0
+                            if d2(i) < d0, d0 = d2(i); end
+                        else
+                            if d2(i) < d1, d1 = d2(i); end
+                        end
+                    end
+                    
+                    % LLR: >0 = 0, <0 = 1
+                    llrOut((k-1)*5 + b) = (d1 - d0) / max(N0, 1e-10);
+                end
+            end
+        end
     end
 
     methods (Access = private)

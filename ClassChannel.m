@@ -4,7 +4,7 @@ classdef ClassChannel < handle
         LogLanguage;
     end
     properties (SetAccess = private)
-        Ps;    % средн€€ мощность символа
+        Ps;    % средн€€ мощность символа (Es)
         Pb;    % мощность на модул€ционный бит
         Pbd;   % мощность на информационный бит (с учЄтом скорости кода)
         Rate;  % скорость LDPC (5/6)
@@ -32,13 +32,12 @@ classdef ClassChannel < handle
                 obj.Rate = 5/6;
             end
 
-            % Ёнерги€ на информационный бит: Es / (log2M * Rate)
+            % Ёнерги€ на информационный бит
             obj.Pbd = obj.Pb / obj.Rate;
         end
 
         function [OutData, InstChannelParams] = Step(obj, InData, h2dB)
-        %STEP ƒобавл€ет комплексный јЅ√Ў.
-        %   h2dB Ч отношение Eb/N0 по информационным битам (дЅ).
+        %   h2dB Ч отношение Es/N0 (дЅ) на символ.
             if obj.isTransparent || isinf(h2dB)
                 OutData = InData;
                 InstChannelParams.Variance = 0;
@@ -46,10 +45,10 @@ classdef ClassChannel < handle
                 return
             end
 
-            % ƒисперси€ комплексного шума: N0 = Pbd * 10^(-h2dB/10)
-            N0 = obj.Pbd * 10^(-h2dB/10);
-            Sigma = sqrt(N0 / 2);   % на каждую квадратуру
-            InstChannelParams.Variance = N0;   % E|n|^2 = 2*Sigma^2 = N0
+            % ƒисперси€ комплексного шума: N0 = Es * 10^(-h2dB/10)
+            N0 = obj.Ps * 10^(-h2dB/10);
+            Sigma = sqrt(N0 / 2);   
+            InstChannelParams.Variance = N0;   
             InstChannelParams.Sigma = Sigma;
 
             Noise = Sigma * (randn(size(InData)) + 1i*randn(size(InData)));

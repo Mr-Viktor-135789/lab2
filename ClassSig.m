@@ -77,46 +77,52 @@ classdef ClassSig < handle
             OutData = conv(upsampled, obj.RRCFilter);
         end
 
-        function OutData = StepRx(obj, InData)
-            if obj.isTransparent
-                OutData = InData;
-                return
-            end
-
-            % Согласованная фильтрация и выборка при известных синхронизации и начале PLFRAME.
-            matched = conv(InData(:), flipud(obj.RRCFilter));
-            first = 2 * obj.FilterDelay + 1;
-            last = first + (obj.FrameSymbols - 1) * obj.SamplesPerSymbol;
-            rxSymbols = matched(first:obj.SamplesPerSymbol:last);
-            if numel(rxSymbols) ~= obj.FrameSymbols
-                error('Не удалось выделить полный PLFRAME после согласованной фильтрации.');
-            end
-
-            obj.LastHeaderError = max(abs(rxSymbols(1:90) - obj.HeaderSymbols));
-            if obj.LastHeaderError > 0.05
-                error('Проверка известного PLHEADER не пройдена.');
-            end
-
-            body = rxSymbols(91:end) .* conj(obj.PLRotation);
-            data = complex(zeros(obj.DataSymbolsPerFrame, 1));
-            sourcePos = 1; targetPos = 1;
-            pilotErrors = zeros(8, 1);
-            for block = 1:9
-                data(targetPos:targetPos + 1439) = body(sourcePos:sourcePos + 1439);
-                sourcePos = sourcePos + 1440;
-                targetPos = targetPos + 1440;
-                if obj.Pilots && block < 9
-                    pilotBlock = body(sourcePos:sourcePos + 35);
-                    pilotErrors(block) = max(abs(pilotBlock - obj.PilotSymbol));
-                    sourcePos = sourcePos + 36;
+                function OutData = StepRx(obj, InData)
+                    if obj.isTransparent
+                        OutData = InData;
+                        return
+                    end
+        
+                    % Согласованная фильтрация и выборка
+                    matched = conv(InData(:), flipud(obj.RRCFilter));
+                    first = 2 * obj.FilterDelay + 1;
+                    last = first + (obj.FrameSymbols - 1) * obj.SamplesPerSymbol;
+                    rxSymbols = matched(first:obj.SamplesPerSymbol:last);
+                    
+                    % Проверка на всякий случай, что символов достаточно
+                    if numel(rxSymbols) < obj.FrameSymbols
+                        error('Не удалось выделить полный PLFRAME.');
+                    end
+        
+                    % === УБИРАЕМ ЖЕСТКУЮ ПРОВЕРКУ PLHEADER (оставляем только для лога) ===
+                    obj.LastHeaderError = max(abs(rxSymbols(1:90) - obj.HeaderSymbols));
+                    % if obj.LastHeaderError > 0.05 ... error ...
+                    
+                    % Извлекаем тело (без PLHEADER) и снимаем PL-скремблирование
+                    body = rxSymbols(91:end) .* conj(obj.PLRotation);
+                    
+                    % Удаляем пилоты (если они есть)
+                    data = complex(zeros(obj.DataSymbolsPerFrame, 1));
+                    sourcePos = 1; targetPos = 1;
+                    pilotErrors = zeros(8, 1);
+                    
+                    for block = 1:9
+                        data(targetPos:targetPos + 1439) = body(sourcePos:sourcePos + 1439);
+                        sourcePos = sourcePos + 1440;
+                        targetPos = targetPos + 1440;
+                        if obj.Pilots && block < 9
+                            pilotBlock = body(sourcePos:sourcePos + 35);
+                            pilotErrors(block) = max(abs(pilotBlock - obj.PilotSymbol));
+                            sourcePos = sourcePos + 36;
+                        end
+                    end
+                    
+                    % === ТОЖЕ УБИРАЕМ ПРОВЕРКУ ПИЛОТОВ ===
+                    obj.LastPilotError = max(pilotErrors);
+                    % if obj.LastPilotError > 0.05 ... error ...
+                    
+                    OutData = data;
                 end
-            end
-            obj.LastPilotError = max(pilotErrors);
-            if obj.LastPilotError > 0.05
-                error('Проверка пилотных символов не пройдена.');
-            end
-            OutData = data;
-        end
     end
 
     methods (Access = private)

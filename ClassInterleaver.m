@@ -31,8 +31,8 @@ classdef ClassInterleaver < handle
             if obj.ModulationOrder ~= 32 || numel(InData) ~= 64800
                 error('На вход деперемежителя поступил кадр неверной длины.');
             end
-            % Обратное преобразование: собираем пять потоков в исходном порядке.
-            matrix = reshape(uint8(InData(:)), 5, []);
+            % Без uint8 — LLR это double, отрицательные значения важны!
+            matrix = reshape(InData(:), 5, []);
             OutData = reshape(matrix.', [], 1);
         end
     end
